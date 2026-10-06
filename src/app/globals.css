@@ -591,3 +591,29 @@ html.cursor-visible .cursor-glow {
     transform: translateX(100%);
   }
 }
+
+/* ============ Courses ============ */
+.btn-on-dark {
+  border-radius: 999px;
+  background: var(--peach);
+  color: var(--espresso);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition:
+    background-color 200ms ease,
+    transform 200ms var(--ease-spring);
+}
+.btn-on-dark:hover {
+  background: #fff1e4;
+}
+.btn-on-dark:active {
+  transform: scale(0.97);
+}
+
+.path-step {
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease;
+}

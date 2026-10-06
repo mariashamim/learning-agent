@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { CourseList } from "@/components/CourseList";
+import { CourseOverview } from "@/components/CourseOverview";
 import { CustomCursor } from "@/components/CustomCursor";
 import { LessonView } from "@/components/LessonView";
 import { Library } from "@/components/Library";
@@ -9,9 +11,9 @@ import { MagneticButton } from "@/components/MagneticButton";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
 import { TopicInput } from "@/components/TopicInput";
-import type { Lesson, LessonRow, LessonStatus, TraceStep } from "@/components/types";
+import type { Answer, Course, LessonRow, QuizResult, View } from "@/components/types";
 
-const SUGGESTIONS = ["Stoicism", "Game Theory", "Epistemology", "Photosynthesis"];
+const SUGGESTIONS = ["Philosophy", "Game Theory", "Stoicism", "Photosynthesis"];
 
 // Page entrance timeline (ms). The heading types in character by character,
 // then subtitle → input row → library follow 100ms apart. ~1.4s in total.
@@ -73,11 +75,8 @@ export default function Home() {
   const [topic, setTopic] = useState("");
   // localStorage-backed; empty during SSR, filled in on hydration.
   const learnerId = useSyncExternalStore(noSubscribe, getOrCreateLearnerId, () => "");
-  const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [lessonScore, setLessonScore] = useState<number | null>(null);
-  const [lessonStatus, setLessonStatus] = useState<LessonStatus>({});
-  const [lessonKey, setLessonKey] = useState(0);
-  const [trace, setTrace] = useState<TraceStep[]>([]);
+  const [view, setView] = useState<View | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [library, setLibrary] = useState<LessonRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -87,35 +86,61 @@ export default function Home() {
   }, [learnerId]);
 
   async function loadLibrary(id: string) {
+    const q = `learnerId=${encodeURIComponent(id)}`;
     try {
-      const res = await fetch(`/api/lessons?learnerId=${encodeURIComponent(id)}`);
-      const data = await readJson(res);
-      if (res.ok) setLibrary(data.lessons ?? []);
+      const [coursesRes, lessonsRes] = await Promise.all([
+        fetch(`/api/courses?${q}`),
+        fetch(`/api/lessons?${q}`),
+      ]);
+      const [coursesData, lessonsData] = await Promise.all([readJson(coursesRes), readJson(lessonsRes)]);
+      if (coursesRes.ok) setCourses(coursesData.courses ?? []);
+      if (lessonsRes.ok) setLibrary(lessonsData.lessons ?? []);
     } catch (e) {
       console.error("Failed to load library", e);
     }
   }
 
-  async function createLesson() {
-    if (!topic.trim() || loading) return;
+  function show(next: View) {
+    setView(next);
+    requestAnimationFrame(() =>
+      document.getElementById("lesson")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
+  }
+
+  /** Starts or continues a course: the tutor resumes, plans, or writes the next module. */
+  async function learn(requested: string) {
+    if (!requested.trim() || loading) return;
     setLoading(true);
     setError("");
-    setLesson(null);
+    setView(null);
     try {
       const response = await fetch("/api/learn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, learnerId }),
+        body: JSON.stringify({ topic: requested, learnerId }),
       });
       const data = await readJson(response);
       if (!response.ok) {
         throw new Error(data.details ? `${data.error} (${data.details})` : data.error);
       }
-      setLesson(data.lesson);
-      setTrace(data.trace);
-      setLessonScore(typeof data.score === "number" ? data.score : null);
-      setLessonStatus({ passed: data.passed, saved: data.saved });
-      setLessonKey((k) => k + 1);
+      const key = Date.now();
+      if (data.kind === "course_complete") {
+        show({ kind: "course_complete", key, course: data.course, trace: data.trace });
+      } else {
+        show({
+          kind: "lesson",
+          key,
+          lesson: data.lesson,
+          lessonId: data.lessonId,
+          score: typeof data.score === "number" ? data.score : null,
+          status: { passed: data.passed, saved: data.saved, resumed: data.resumed },
+          course: data.course,
+          moduleIndex: data.moduleIndex,
+          tutorNote: data.tutorNote,
+          trace: data.trace,
+        });
+      }
+      setTopic("");
       loadLibrary(learnerId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -124,16 +149,50 @@ export default function Home() {
     }
   }
 
+  async function submitQuiz(lessonId: number, answers: Answer[]): Promise<QuizResult> {
+    const response = await fetch("/api/attempts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ learnerId, lessonId, answers }),
+    });
+    const data = await readJson(response);
+    if (!response.ok) throw new Error(data.error ?? "Couldn't save your quiz.");
+    loadLibrary(learnerId);
+    return data as QuizResult;
+  }
+
+  function openModule(course: Course, moduleIndex: number) {
+    const lesson = course.modules[moduleIndex]?.lesson;
+    if (!lesson) return;
+    setError("");
+    show({
+      kind: "lesson",
+      key: Date.now(),
+      lesson: lesson.data,
+      lessonId: lesson.id,
+      score: lesson.score,
+      status: {},
+      course,
+      moduleIndex,
+      tutorNote: null,
+      trace: [{ step: "opened_module", courseId: course.id, module: moduleIndex + 1, lessonId: lesson.id }],
+    });
+  }
+
   function openPastLesson(row: LessonRow) {
     setError("");
-    setLesson(row.lesson_data);
-    setLessonScore(row.score);
-    setLessonStatus({});
-    setLessonKey((k) => k + 1);
-    setTrace([{ step: "loaded_from_library", lessonId: row.id, topic: row.topic }]);
-    requestAnimationFrame(() =>
-      document.getElementById("lesson")?.scrollIntoView({ behavior: "smooth", block: "start" })
-    );
+    show({
+      kind: "lesson",
+      key: Date.now(),
+      lesson: row.lesson_data,
+      lessonId: row.id,
+      score: row.score,
+      status: {},
+      course: null,
+      moduleIndex: null,
+      tutorNote: null,
+      trace: [{ step: "loaded_from_library", lessonId: row.id, topic: row.topic }],
+    });
   }
 
   return (
@@ -142,13 +201,13 @@ export default function Home() {
       {loading && <TopProgressBar />}
 
       <main className="relative z-[1] min-h-screen text-espresso">
-        <SiteHeader learnerId={learnerId} lessonCount={library.length} />
+        <SiteHeader learnerId={learnerId} courseCount={courses.length} />
 
         <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6">
           {/* Hero */}
           <section className="pt-12 sm:pt-20">
             <p className="intro text-xs font-medium uppercase tracking-[0.2em] text-taupe" style={intro(0)}>
-              A lesson in ten minutes or less
+              Short courses, ten minutes a module
             </p>
             <SplitHeading
               text={HEADING}
@@ -159,8 +218,8 @@ export default function Home() {
               className="intro mt-5 max-w-xl text-[15px] leading-relaxed text-coffee sm:text-base"
               style={intro(SUBTITLE_AT)}
             >
-              Name any topic. The agent drafts a short lesson, has it reviewed before you see it, and
-              remembers what you&rsquo;ve studied for next time.
+              Name any topic. Your tutor plans a short course, writes each module and checks it
+              before you see it, then picks up where you left off whenever you come back.
             </p>
 
             <div className="intro" style={intro(INPUT_AT)}>
@@ -171,7 +230,7 @@ export default function Home() {
                 className="mt-1 flex flex-col gap-2 sm:flex-row"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  createLesson();
+                  learn(topic);
                 }}
               >
                 <TopicInput value={topic} onChange={setTopic} />
@@ -192,7 +251,7 @@ export default function Home() {
               {loading ? (
                 <StatusCycle />
               ) : (
-                !lesson && (
+                !view && (
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <span className="text-xs text-taupe">Try</span>
                     {SUGGESTIONS.map((s) => (
@@ -228,13 +287,22 @@ export default function Home() {
             </div>
           )}
 
-          {lesson && <LessonView
-              key={lessonKey}
-              lesson={lesson}
-              score={lessonScore}
-              status={lessonStatus}
-              trace={trace}
-            />}
+          {view?.kind === "lesson" && (
+            <LessonView
+              key={view.key}
+              view={view}
+              onSubmitQuiz={submitQuiz}
+              onContinue={learn}
+              onOpenModule={openModule}
+            />
+          )}
+          {view?.kind === "course_complete" && (
+            <CourseOverview key={view.key} course={view.course} trace={view.trace} onOpenModule={openModule} />
+          )}
+
+          {courses.length > 0 && (
+            <CourseList courses={courses} onContinue={learn} disabled={loading} introDelay={libraryIntroDelay} />
+          )}
 
           {library.length > 0 && (
             <Library library={library} onOpen={openPastLesson} introDelay={libraryIntroDelay} />
@@ -242,7 +310,7 @@ export default function Home() {
         </div>
 
         <footer className="border-t border-beige/60 py-8 text-center text-xs text-taupe">
-          Every lesson is scored by a second pass before it reaches you.
+          Every module is scored by a second pass before it reaches you.
         </footer>
       </main>
     </>

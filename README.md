@@ -1,9 +1,12 @@
 # Learning Agent
 
-An agentic tutor. Give it a topic and it writes a short lesson with a quiz,
-has a second model call score it, revises it if needed, and saves it to
-Supabase. Returning learners get lessons shaped by what they've already
-studied. See [AGENTS.md](AGENTS.md) for the architecture.
+An agentic tutor, in the spirit of Brilliant. Name any topic and a tutor
+agent plans a short course, writes each 5-10 minute module (checked by a
+separate evaluator before you see it), grades your quizzes, and picks up where
+you left off when you come back.
+
+- [AGENTS.md](AGENTS.md): architecture and rules
+- [HARNESS.md](HARNESS.md): harness engineering notes and design decisions
 
 ## Run locally
 
@@ -14,6 +17,11 @@ npm install
 cp .env.example .env.local   # then fill in the values
 npm run dev
 ```
+
+**Database:** run [`supabase/migrations/001_courses.sql`](supabase/migrations/001_courses.sql)
+once in Supabase (Dashboard → SQL Editor → paste → Run). It adds the
+`courses` and `attempts` tables and three columns on `lessons`. It is safe to
+run again.
 
 Open http://localhost:3000.
 

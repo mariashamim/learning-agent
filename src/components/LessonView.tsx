@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { CoursePath } from "./CoursePath";
 import { HarnessTrace } from "./HarnessTrace";
 import { QuizQuestion } from "./QuizQuestion";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
-import type { Lesson, LessonStatus, TraceStep } from "./types";
+import type { Answer, Course, QuizResult, View } from "./types";
 
 // Entrance timeline (ms): header → concepts (120ms apart) → quiz heading →
 // quiz cards (80ms apart). About one second for a typical lesson.
@@ -15,33 +16,72 @@ const CONCEPT_STAGGER = 120;
 const QUIZ_STAGGER = 80;
 const DURATION = 400;
 
+type Submission =
+  | { state: "idle" }
+  | { state: "saving" }
+  | { state: "done"; result: QuizResult }
+  | { state: "error"; message: string };
+
 export function LessonView({
-  lesson,
-  score,
-  status,
-  trace,
+  view,
+  onSubmitQuiz,
+  onContinue,
+  onOpenModule,
 }: {
-  lesson: Lesson;
-  score: number | null;
-  status: LessonStatus;
-  trace: TraceStep[];
+  view: Extract<View, { kind: "lesson" }>;
+  onSubmitQuiz: (lessonId: number, answers: Answer[]) => Promise<QuizResult>;
+  onContinue: (topic: string) => void;
+  onOpenModule: (course: Course, moduleIndex: number) => void;
 }) {
-  const [answers, setAnswers] = useState<Record<number, boolean>>({});
+  const { lesson, lessonId, score, status, course, moduleIndex, tutorNote, trace } = view;
+  const [answers, setAnswers] = useState<Record<number, { chosen: string; correct: boolean }>>({});
+  const [submission, setSubmission] = useState<Submission>({ state: "idle" });
   const answered = Object.keys(answers).length;
-  const correctCount = Object.values(answers).filter(Boolean).length;
+  const correctCount = Object.values(answers).filter((a) => a.correct).length;
   const total = lesson.questions.length;
   const quizHeadingAt = CONCEPT_START + lesson.concepts.length * CONCEPT_STAGGER;
+  const currentMod = course && moduleIndex !== null ? course.modules[moduleIndex] : null;
+
+  async function submit(all: typeof answers) {
+    if (lessonId === null) return;
+    setSubmission({ state: "saving" });
+    try {
+      const result = await onSubmitQuiz(
+        lessonId,
+        Object.entries(all).map(([i, a]) => ({ questionIndex: Number(i), chosen: a.chosen }))
+      );
+      setSubmission({ state: "done", result });
+    } catch (e) {
+      setSubmission({ state: "error", message: e instanceof Error ? e.message : "Couldn't save your quiz." });
+    }
+  }
+
+  function handleAnswer(i: number, chosen: string, correct: boolean) {
+    const next = { ...answers, [i]: { chosen, correct } };
+    setAnswers(next);
+    if (Object.keys(next).length === total) submit(next);
+  }
 
   return (
     <article id="lesson" className="mt-16 scroll-mt-24">
+      {course && (
+        <Reveal y={10} duration={DURATION} className="mb-8">
+          <CoursePath course={course} activeIndex={moduleIndex} onOpenModule={onOpenModule} />
+        </Reveal>
+      )}
+
       <Reveal as="header" y={10} duration={DURATION} className="border-b border-beige/70 pb-8">
         <div className="flex flex-wrap items-center gap-3 text-xs">
+          {currentMod && moduleIndex !== null && course && (
+            <>
+              <span className="font-medium uppercase tracking-[0.18em] text-coffee">
+                Module {moduleIndex + 1} of {course.modules.length}
+              </span>
+              <span className="h-1 w-1 rounded-full bg-beige" aria-hidden />
+            </>
+          )}
           <span className="uppercase tracking-[0.18em] text-taupe">
-            {lesson.estimatedMinutes} minute lesson
-          </span>
-          <span className="h-1 w-1 rounded-full bg-beige" aria-hidden />
-          <span className="uppercase tracking-[0.18em] text-taupe">
-            {lesson.concepts.length} ideas · {total} questions
+            {lesson.estimatedMinutes} min · {lesson.concepts.length} ideas · {total} questions
           </span>
           {score != null && <ScoreBadge score={score} />}
         </div>
@@ -51,6 +91,21 @@ export function LessonView({
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-coffee sm:text-lg">
           {lesson.objective}
         </p>
+
+        {tutorNote && (
+          <div className="mt-6 flex gap-3 rounded-2xl border border-beige bg-paper px-5 py-4">
+            <span className="font-display flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-espresso text-sm text-peach italic">
+              T
+            </span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-taupe">Your tutor</p>
+              <p className="mt-1 text-[15px] leading-relaxed text-espresso">{tutorNote}</p>
+            </div>
+          </div>
+        )}
+        {status.resumed && (
+          <Notice>Picking up where you left off: you haven&rsquo;t finished this module&rsquo;s quiz yet.</Notice>
+        )}
         {status.passed === false && score != null && (
           <Notice>
             This is the agent&rsquo;s best attempt: it scored {score}/10, below the {PASS_SCORE}/10
@@ -59,7 +114,7 @@ export function LessonView({
         )}
         {status.saved === false && (
           <Notice>
-            This lesson couldn&rsquo;t be saved, so it won&rsquo;t appear in your library. You can
+            This lesson couldn&rsquo;t be saved, so your progress on it won&rsquo;t be kept. You can
             still study it now.
           </Notice>
         )}
@@ -98,7 +153,7 @@ export function LessonView({
       {total === 0 && (
         <p className="mt-12 text-sm text-taupe">
           This lesson was saved before quizzes were required, so it has no questions. Search the
-          topic again for a version with a quiz.
+          topic again for a course with quizzes.
         </p>
       )}
 
@@ -125,25 +180,98 @@ export function LessonView({
                 <QuizQuestion
                   index={i}
                   question={q}
-                  onAnswer={(ok) => setAnswers((a) => ({ ...a, [i]: ok }))}
+                  onAnswer={(chosen, correct) => handleAnswer(i, chosen, correct)}
                 />
               </Reveal>
             ))}
           </div>
           {answered === total && (
-            <div className="animate-fade-in mt-6 rounded-2xl bg-espresso px-6 py-5 text-peach">
-              <p className="font-display text-lg">
-                {correctCount === total
-                  ? "A clean sweep. Well done."
-                  : `You got ${correctCount} of ${total}. Revisit the ideas above, then try a new topic.`}
-              </p>
-            </div>
+            <QuizOutcome
+              correct={correctCount}
+              total={total}
+              submission={submission}
+              moduleIndex={moduleIndex}
+              course={course}
+              onRetry={() => submit(answers)}
+              onContinue={onContinue}
+            />
           )}
         </section>
       )}
 
       <HarnessTrace trace={trace} />
     </article>
+  );
+}
+
+function QuizOutcome({
+  correct,
+  total,
+  submission,
+  moduleIndex,
+  course,
+  onRetry,
+  onContinue,
+}: {
+  correct: number;
+  total: number;
+  submission: Submission;
+  moduleIndex: number | null;
+  course: Course | null;
+  onRetry: () => void;
+  onContinue: (topic: string) => void;
+}) {
+  const scoreLine =
+    correct === total ? "A clean sweep. Well done." : `You got ${correct} of ${total}.`;
+  // Prefer the server's updated course once the quiz is saved.
+  const latest = submission.state === "done" ? (submission.result.course ?? course) : course;
+  const finishedCourse = latest?.status === "completed";
+  const nextIndex = latest?.currentModule ?? null;
+  const next = latest && nextIndex !== null && !finishedCourse ? latest.modules[nextIndex] : null;
+
+  return (
+    <div className="animate-fade-in mt-6 rounded-2xl bg-espresso px-6 py-5 text-peach">
+      <p className="font-display text-lg">{scoreLine}</p>
+
+      {submission.state === "saving" && <p className="mt-2 text-sm text-peach/70">Saving your progress…</p>}
+
+      {submission.state === "error" && (
+        <p className="mt-2 text-sm text-peach/80">
+          {submission.message}{" "}
+          <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-white">
+            Try again
+          </button>
+        </p>
+      )}
+
+      {submission.state === "done" && latest && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {finishedCourse ? (
+            <>
+              <p className="text-sm text-peach/85">You&rsquo;ve finished the whole course.</p>
+              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-on-dark">
+                See your course →
+              </button>
+            </>
+          ) : next && nextIndex !== null ? (
+            <>
+              <p className="text-sm text-peach/85">
+                {nextIndex === moduleIndex
+                  ? "This module is still open."
+                  : `Up next: Module ${nextIndex + 1}, ${next.title}.`}
+              </p>
+              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-on-dark">
+                {next.lesson ? `Go to Module ${nextIndex + 1} →` : `Start Module ${nextIndex + 1} →`}
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {submission.state === "done" && !latest && (
+        <p className="mt-2 text-sm text-peach/80">Search another topic to keep going.</p>
+      )}
+    </div>
   );
 }
 

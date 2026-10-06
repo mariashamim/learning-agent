@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { copyText } from "./copyText";
 import { Toast } from "./Toast";
 
-export function SiteHeader({ learnerId, lessonCount }: { learnerId: string; lessonCount: number }) {
+export function SiteHeader({ learnerId, courseCount }: { learnerId: string; courseCount: number }) {
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const shortId = learnerId.replace(/^learner-/, "");
 
@@ -49,7 +49,7 @@ export function SiteHeader({ learnerId, lessonCount }: { learnerId: string; less
               </span>
               <span className="leading-tight">
                 <span className="block text-[10px] uppercase tracking-[0.14em] text-taupe">
-                  {lessonCount ? `${lessonCount} lesson${lessonCount === 1 ? "" : "s"}` : "Learner"}
+                  {courseCount ? `${courseCount} course${courseCount === 1 ? "" : "s"}` : "Learner"}
                 </span>
                 <span className="block max-w-[9rem] truncate font-mono text-xs text-coffee">
                   {shortId}

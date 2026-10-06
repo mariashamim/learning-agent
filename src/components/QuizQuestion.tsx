@@ -26,7 +26,7 @@ export function QuizQuestion({
 }: {
   question: Question;
   index: number;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (chosen: string, correct: boolean) => void;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const correct = picked === question.correctAnswer;
@@ -34,7 +34,7 @@ export function QuizQuestion({
   function pick(o: string) {
     if (picked !== null) return;
     setPicked(o);
-    onAnswer(o === question.correctAnswer);
+    onAnswer(o, o === question.correctAnswer);
   }
 
   return (

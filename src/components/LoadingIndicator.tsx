@@ -3,10 +3,11 @@
 import { useEffect, useState, type CSSProperties } from "react";
 
 const PHRASES = [
-  "Reading your learning history…",
-  "Designing a lesson…",
-  "Evaluating quality…",
-  "Saving to your library…",
+  "Checking where you left off…",
+  "Planning your course…",
+  "Writing your next module…",
+  "Checking its quality…",
+  "Saving your progress…",
 ];
 
 /** 2px indeterminate bar pinned to the top of the viewport. */

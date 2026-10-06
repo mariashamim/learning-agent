@@ -19,9 +19,9 @@ export function Library({
   introDelay: () => number;
 }) {
   return (
-    <section className="mt-20">
+    <section className="mt-16">
       <Reveal delayOffset={introDelay} className="flex items-baseline justify-between border-b border-beige/70 pb-3">
-        <h3 className="font-display text-2xl font-medium text-espresso">Your library</h3>
+        <h3 className="font-display text-2xl font-medium text-espresso">Single lessons</h3>
         <span className="text-xs text-taupe">{library.length} saved</span>
       </Reveal>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

@@ -1,325 +1,391 @@
+// The tutor harness. Each run prepares the learner's next module for a topic.
+//
+//   1. Load state (course, progress). If the answer is already known, return
+//      it without calling a model (resume an unfinished module, or report a
+//      finished course).
+//   2. Otherwise run a bounded agent loop: the model sees the learner's state,
+//      calls tools (plan a course, inspect quiz mistakes, write a module), and
+//      finishes with a short note to the learner.
+//   3. The harness validates every tool call, enforces the rules the model
+//      can't be trusted with (one course per topic, exactly one module per
+//      run, only the current module), and routes all lesson writing through
+//      the quality gate in lessonWriter.ts.
+
 import { z } from "zod";
-import { getLearnerHistory, saveLesson, upsertProgress } from "./db";
+import * as db from "./db";
+import { latestLessonForModule, toCourseView, type CourseView } from "./courseView";
+import { PASS_SCORE, writeLesson, type Lesson, type TraceEntry } from "./lessonWriter";
+import { callWithTools, type ChatMessage, type ToolCall, type ToolDefinition } from "./model";
 
-const LessonSchema = z.object({
-  title: z.string(),
-  objective: z.string(),
-  estimatedMinutes: z.number(),
-  concepts: z.array(
-    z.object({
-      name: z.string(),
-      explanation: z.string(),
-      example: z.string(),
-    })
-  ),
-  // Every lesson must carry a usable quiz: 2-4 questions, 4 options each,
-  // and the correct answer must be one of the options.
-  questions: z
-    .array(
-      z
-        .object({
-          question: z.string(),
-          options: z.array(z.string()).length(4),
-          correctAnswer: z.string(),
-          explanation: z.string(),
-        })
-        .refine((q) => q.options.includes(q.correctAnswer), {
-          message: "correctAnswer must exactly match one of the options",
-        })
-    )
-    .min(2)
-    .max(4),
-});
+export type { TraceEntry };
 
-export type Lesson = z.infer<typeof LessonSchema>;
+// Bounded iteration: the agent gets at most this many model turns per run.
+const MAX_AGENT_STEPS = 6;
+// The lesson writer won't start a revision after this point in the run...
+const REVISE_DEADLINE_MS = 120_000;
+// ...and the agent loop won't start a new turn after this one. The route
+// allows 300s; this leaves room for the turn in flight and the save.
+const RUN_BUDGET_MS = 200_000;
 
-const EvaluationSchema = z.object({
-  score: z.number(),
-  approved: z.boolean(),
-  problems: z.array(z.string()),
-  suggestions: z.array(z.string()),
-});
+const MIN_MODULES = 3;
+const MAX_MODULES = 6;
 
-type Evaluation = z.infer<typeof EvaluationSchema>;
-
-const MODEL = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4.1-flash";
-
-// A single model call may not hang the request: abort after this long.
-const MODEL_TIMEOUT_MS = 60_000;
-
-async function callModel(
-  system: string,
-  user: string,
-  schema: Record<string, unknown>
-) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
-
-  const response = await fetch(
-    "https://openrouter.ai/api/v1/chat/completions",
-    {
-      method: "POST",
-      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "response",
-            strict: true,
-            schema,
-          },
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenRouter ${response.status}: ${text}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Model returned no content");
-  return JSON.parse(content);
-}
-
-const lessonJsonSchema = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    objective: { type: "string" },
-    estimatedMinutes: { type: "number" },
-    concepts: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          explanation: { type: "string" },
-          example: { type: "string" },
-        },
-        required: ["name", "explanation", "example"],
-        additionalProperties: false,
-      },
-    },
-    questions: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          question: { type: "string" },
-          options: { type: "array", items: { type: "string" } },
-          correctAnswer: { type: "string" },
-          explanation: { type: "string" },
-        },
-        required: ["question", "options", "correctAnswer", "explanation"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["title", "objective", "estimatedMinutes", "concepts", "questions"],
-  additionalProperties: false,
-};
-
-// Shared by generate and revise so a first draft gets the same quiz rules.
-const LESSON_REQUIREMENTS = `REQUIREMENTS:
-- 2-3 concepts, each with a clear explanation and a concrete real-world example
-- EXACTLY 3 multiple-choice questions (never fewer than 2, never more than 4)
-- Each question must have EXACTLY 4 options
-- The correctAnswer field must be an EXACT string match of one of the options
-- Each question needs a 1-2 sentence explanation of why the answer is correct
-- Total lesson time: 5-10 minutes
-
-Return only JSON matching the schema. The questions array MUST NOT be empty.`;
-
-// The model occasionally ignores the quiz rules. Retry once on a validation
-// failure (bounded), then give up with a clear error.
-const MAX_LESSON_ATTEMPTS = 2;
-
-async function requestValidLesson(request: () => Promise<unknown>): Promise<Lesson> {
-  let lastError: z.ZodError | undefined;
-  for (let attempt = 1; attempt <= MAX_LESSON_ATTEMPTS; attempt++) {
-    const result = LessonSchema.safeParse(await request());
-    if (result.success) return result.data;
-    lastError = result.error;
-  }
-  throw new Error(
-    `Model did not return a valid lesson with a quiz after ${MAX_LESSON_ATTEMPTS} attempts: ${lastError?.message}`
-  );
-}
-
-const evaluationJsonSchema = {
-  type: "object",
-  properties: {
-    score: { type: "number", minimum: 0, maximum: 10 },
-    approved: { type: "boolean" },
-    problems: { type: "array", items: { type: "string" } },
-    suggestions: { type: "array", items: { type: "string" } },
-  },
-  required: ["score", "approved", "problems", "suggestions"],
-  additionalProperties: false,
-};
-
-async function generateLesson(
-  topic: string,
-  history: HistoryEntry[] = []
-): Promise<Lesson> {
-  const historyContext =
-    history.length === 0
-      ? "This learner is brand new. No prior lessons."
-      : `This learner has already studied these topics:\n${history
-          .map((h) => `- ${h.topic} (${h.status})`)
-          .join(
-            "\n"
-          )}\n\nWhen relevant, connect the new lesson to what they already know. Avoid repeating introductory material they've already covered.`;
-
-  return requestValidLesson(() =>
-    callModel(
-      `You are an expert instructional designer. Create a short interactive lesson.
-Teach concepts clearly with concrete examples.
-
-${LESSON_REQUIREMENTS}`,
-      `${historyContext}\n\nCreate a beginner-friendly lesson about: ${topic}`,
-      lessonJsonSchema
-    )
-  );
-}
-
-async function evaluateLesson(topic: string, lesson: Lesson): Promise<Evaluation> {
-  const result = await callModel(
-    `You are a strict educational quality evaluator. Evaluate the lesson on a 0-10 scale.
-Use the FULL range: 3 = poor, 5 = mediocre, 7 = good, 8-9 = excellent, 10 = perfect.
-Evaluate for: accuracy, clarity, difficulty, examples, active learning, and time fit (5-10 min).
-Be critical, but score honestly. Return only JSON.`,
-    `Topic: ${topic}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}`,
-    evaluationJsonSchema
-  );
-  return EvaluationSchema.parse(result);
-}
-
-async function reviseLesson(
-  topic: string,
-  lesson: Lesson,
-  evaluation: Evaluation
-): Promise<Lesson> {
-  return requestValidLesson(() =>
-    callModel(
-      `You are an expert instructional designer. Create a short interactive lesson.
-
-${LESSON_REQUIREMENTS}`,
-      `Topic: ${topic}\n\nLesson:\n${JSON.stringify(
-        lesson,
-        null,
-        2
-      )}\n\nFeedback:\n${JSON.stringify(evaluation, null, 2)}`,
-      lessonJsonSchema
-    )
-  );
-}
-
-// ---------- The agent loop ----------
-
-// A lesson must score at least this to count as passing evaluation.
-const PASS_SCORE = 8;
-// Bounded iteration: at most this many evaluations (so at most one revision).
-const MAX_ITERATIONS = 2;
-// Don't start a revision this late: a revision plus its re-evaluation can
-// take ~3 minutes in the worst case, and the route allows 5.
-const REVISE_DEADLINE_MS = 100_000;
-
-export type TraceEntry = { step: string; [key: string]: unknown };
-type HistoryEntry = { topic: string; status: string };
-
-/** Case- and whitespace-insensitive key, so "Stoicism" and " stoicism" are one topic. */
+/** Case- and whitespace-insensitive key, so "Stoicism" and " stoicism" are one course. */
 export function topicKey(topic: string) {
   return topic.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export type TutorResult =
+  | {
+      kind: "lesson";
+      course: CourseView;
+      moduleIndex: number;
+      lessonId: number | null;
+      lesson: Lesson;
+      score: number | null;
+      passed: boolean;
+      saved: boolean;
+      /** True when an unfinished module was returned without new generation. */
+      resumed: boolean;
+      tutorNote: string | null;
+      trace: TraceEntry[];
+    }
+  | { kind: "course_complete"; course: CourseView; trace: TraceEntry[] };
 
-export async function runLearningHarness(topic: string, learnerId: string) {
-  const startedAt = Date.now();
-  const trace: TraceEntry[] = [];
-  const key = topicKey(topic);
+// ---------- Tools the agent can call ----------
 
-  const history = (await getLearnerHistory(learnerId)) as HistoryEntry[];
+const CreateCourseArgs = z.object({
+  title: z.string().min(3).max(120),
+  description: z.string().min(10).max(400),
+  modules: z
+    .array(z.object({ title: z.string().min(3).max(120), goal: z.string().min(10).max(300) }))
+    .min(MIN_MODULES)
+    .max(MAX_MODULES),
+});
+
+const WriteModuleArgs = z.object({
+  focus: z.string().max(800),
+});
+
+const TOOLS: ToolDefinition[] = [
+  {
+    type: "function",
+    function: {
+      name: "create_course",
+      description:
+        "Plan a new course for this topic: a short path of modules, each a 5-10 minute lesson. Only allowed when the learner has no course for the topic.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Course title" },
+          description: { type: "string", description: "One or two sentences on what the learner will get" },
+          modules: {
+            type: "array",
+            minItems: MIN_MODULES,
+            maxItems: MAX_MODULES,
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                goal: { type: "string", description: "What the learner can do after this module" },
+              },
+              required: ["title", "goal"],
+            },
+          },
+        },
+        required: ["title", "description", "modules"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_quiz_mistakes",
+      description:
+        "List the quiz questions the learner got wrong in this course so far, with what they chose and the right answer.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "write_module",
+      description:
+        "Write the lesson for the course's current module. A separate evaluator scores it and it is revised if needed. Call exactly once per run.",
+      parameters: {
+        type: "object",
+        properties: {
+          focus: {
+            type: "string",
+            description:
+              "Instructions for the lesson writer: what to emphasize, what earlier idea to connect to, what misconception to recap. Under 80 words.",
+          },
+        },
+        required: ["focus"],
+      },
+    },
+  },
+];
+
+const SYSTEM_PROMPT = `You are the tutor agent of a learning app where anyone can learn anything through short interactive modules (5-10 minutes each). Each run, you prepare the learner's next module.
+
+How to work:
+1. If the learner has no course for this topic, call create_course with ${MIN_MODULES}-${MAX_MODULES} modules that build on each other, starting from beginner level. Use their history: don't re-teach basics they covered in related topics.
+2. If the course state shows wrong quiz answers, call get_quiz_mistakes and use what you learn in the module's focus (for example, open with a short recap of the misunderstood idea).
+3. Call write_module exactly once. Give a concrete focus for the lesson writer.
+4. Then reply, without tool calls, with a short note to the learner: 1-2 warm sentences in second person on what this module covers and why it's next.
+
+Rules: one module per run; only the current module can be written; never claim progress the learner hasn't made.`;
+
+type RunState = {
+  learnerId: string;
+  topic: string;
+  key: string;
+  course: db.CourseWithLessons | null;
+  written: {
+    moduleIndex: number;
+    lessonId: number | null;
+    lesson: Lesson;
+    score: number;
+    passed: boolean;
+  } | null;
+  startedAt: number;
+  trace: TraceEntry[];
+};
+
+type ToolResult = Record<string, unknown>;
+
+async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
+  let rawArgs: unknown;
+  try {
+    rawArgs = JSON.parse(call.function.arguments || "{}");
+  } catch {
+    return { error: "Arguments were not valid JSON." };
+  }
+
+  switch (call.function.name) {
+    case "create_course": {
+      if (state.course) return { error: "This learner already has a course for this topic. Use write_module." };
+      const args = CreateCourseArgs.safeParse(rawArgs);
+      if (!args.success) return { error: `Invalid arguments: ${args.error.message}` };
+      const row = await db.createCourse({
+        learnerId: state.learnerId,
+        topic: state.topic,
+        topicKey: state.key,
+        ...args.data,
+      });
+      state.course = { ...row, lessons: [] };
+      return { ok: true, modules: row.modules.length, next: "Call write_module to write module 1." };
+    }
+
+    case "get_quiz_mistakes": {
+      if (!state.course) return { mistakes: [], note: "No course yet, so no quiz history." };
+      const lessons = await db.getCourseAttempts(state.course.id);
+      const mistakes = lessons.flatMap((l) =>
+        l.attempts
+          .filter((a) => !a.correct)
+          .map((a) => ({
+            module: (l.module_index ?? 0) + 1,
+            question: l.lesson_data.questions[a.question_index]?.question,
+            chose: a.chosen,
+            correctAnswer: l.lesson_data.questions[a.question_index]?.correctAnswer,
+          }))
+      );
+      return { mistakes: mistakes.slice(0, 10) };
+    }
+
+    case "write_module": {
+      if (!state.course) return { error: "Create the course first with create_course." };
+      if (state.written) return { error: "A module was already written this run. Finish with your note." };
+      if (state.course.status === "completed") return { error: "This course is already complete." };
+      const args = WriteModuleArgs.safeParse(rawArgs);
+      if (!args.success) return { error: `Invalid arguments: ${args.error.message}` };
+
+      const course = state.course;
+      const moduleIndex = course.current_module;
+      const { lesson, score, passed } = await writeLesson(
+        {
+          topic: course.topic,
+          courseTitle: course.title,
+          moduleIndex,
+          moduleCount: course.modules.length,
+          module: course.modules[moduleIndex],
+          previousModules: course.modules.slice(0, moduleIndex).map((m) => m.title),
+          focus: args.data.focus,
+        },
+        { reviseDeadline: state.startedAt + REVISE_DEADLINE_MS, trace: state.trace }
+      );
+
+      const lessonId = await db.saveLesson(state.learnerId, course.topic, lesson, score, {
+        courseId: course.id,
+        moduleIndex,
+      });
+      state.trace.push({ step: "save_lesson", lessonId });
+      const progressSaved = await db.upsertProgress(state.learnerId, state.key, "started", lessonId ?? undefined);
+      state.trace.push({ step: "save_progress", saved: progressSaved });
+      await db.updateCourse(course.id, {}); // bump updated_at so it sorts first
+
+      state.written = { moduleIndex, lessonId, lesson, score, passed };
+      return { ok: true, module: moduleIndex + 1, lessonTitle: lesson.title, score, passed };
+    }
+
+    default:
+      return { error: `Unknown tool: ${call.function.name}` };
+  }
+}
+
+// ---------- Context the agent starts with ----------
+
+async function describeState(state: RunState) {
+  const history = (await db.getLearnerHistory(state.learnerId)) as { topic: string; status: string }[];
+  const others = history.filter((h) => h.topic !== state.key);
+  const historyLine = others.length
+    ? `Other topics this learner has studied: ${others.map((h) => `${h.topic} (${h.status})`).join(", ")}.`
+    : "The learner hasn't studied other topics here yet.";
+
+  if (!state.course) {
+    return `Learner wants to learn: "${state.topic}"\n${historyLine}\nCourse state: no course for this topic yet.`;
+  }
+
+  const course = state.course;
+  const attempts = await db.getCourseAttempts(course.id);
+  const lines = course.modules.map((m, i) => {
+    const lesson = latestLessonForModule(course, i);
+    const quiz = attempts.find((a) => a.id === lesson?.id)?.attempts ?? [];
+    const right = quiz.filter((a) => a.correct).length;
+    const status =
+      i < course.current_module
+        ? `done${quiz.length ? `, quiz ${right}/${quiz.length} correct` : ""}`
+        : i === course.current_module
+          ? "NEXT — write this one"
+          : "not started";
+    return `  ${i + 1}. ${m.title} — ${status}`;
+  });
+  return `Learner wants to continue: "${state.topic}"
+${historyLine}
+Course: "${course.title}" — ${course.description}
+Modules:
+${lines.join("\n")}`;
+}
+
+// ---------- The run ----------
+
+export async function runTutor(topic: string, learnerId: string): Promise<TutorResult> {
+  const state: RunState = {
+    learnerId,
+    topic: topic.trim(),
+    key: topicKey(topic),
+    course: null,
+    written: null,
+    startedAt: Date.now(),
+    trace: [],
+  };
+  const { trace } = state;
+
+  state.course = await db.getCourse(learnerId, state.key);
   trace.push({
-    step: "load_history",
-    entries: history.length,
-    topics: history.map((h) => h.topic),
+    step: "load_course",
+    found: !!state.course,
+    currentModule: state.course ? state.course.current_module + 1 : null,
   });
 
-  let candidate = await generateLesson(topic, history);
-  trace.push({ step: "generate", result: "Lesson generated" });
-
-  // Only lessons that have been evaluated may be shown. Track the best one;
-  // a revision that fails or can't be re-evaluated is discarded.
-  let best: { lesson: Lesson; score: number } | null = null;
-
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
-    let evaluation: Evaluation;
-    try {
-      evaluation = await evaluateLesson(topic, candidate);
-    } catch (e) {
-      // Nothing evaluated yet means nothing we're allowed to show.
-      if (!best) throw e;
-      trace.push({ step: "evaluate_failed", iteration, error: errorMessage(e) });
-      break;
-    }
-
-    trace.push({
-      step: "evaluate",
-      iteration,
-      score: evaluation.score,
-      approved: evaluation.approved,
-      problems: evaluation.problems,
-    });
-    if (!best || evaluation.score > best.score) {
-      best = { lesson: candidate, score: evaluation.score };
-    }
-
-    if (evaluation.score >= PASS_SCORE || iteration === MAX_ITERATIONS) break;
-    if (Date.now() - startedAt > REVISE_DEADLINE_MS) {
-      trace.push({ step: "revise_skipped", iteration, reason: "time budget" });
-      break;
-    }
-
-    try {
-      candidate = await reviseLesson(topic, candidate, evaluation);
-      trace.push({ step: "revise", iteration, result: "Lesson revised" });
-    } catch (e) {
-      trace.push({ step: "revise_failed", iteration, error: errorMessage(e) });
-      break;
+  // Fast paths: no model call needed.
+  if (state.course?.status === "completed") {
+    trace.push({ step: "fast_path", reason: "course already complete" });
+    return { kind: "course_complete", course: toCourseView(state.course), trace };
+  }
+  if (state.course) {
+    const unfinished = latestLessonForModule(state.course, state.course.current_module);
+    if (unfinished && !unfinished.completed_at) {
+      trace.push({ step: "fast_path", reason: "resume unfinished module", lessonId: unfinished.id });
+      return {
+        kind: "lesson",
+        course: toCourseView(state.course),
+        moduleIndex: state.course.current_module,
+        lessonId: unfinished.id,
+        lesson: unfinished.lesson_data,
+        score: unfinished.score,
+        passed: (unfinished.score ?? 0) >= PASS_SCORE,
+        saved: true,
+        resumed: true,
+        tutorNote: null,
+        trace,
+      };
     }
   }
 
-  // The loop always evaluates at least once or throws, so best is set.
-  const { lesson, score } = best!;
-  const passed = score >= PASS_SCORE;
-  trace.push({ step: "select", score, passed });
+  // The agent loop.
+  const messages: ChatMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: await describeState(state) },
+  ];
+  let tutorNote: string | null = null;
+  let nudged = false;
 
-  const lessonId = await saveLesson(learnerId, topic.trim(), lesson, score);
-  trace.push({ step: "save_lesson", lessonId });
+  for (let step = 1; step <= MAX_AGENT_STEPS; step++) {
+    if (Date.now() - state.startedAt > RUN_BUDGET_MS) {
+      trace.push({ step: "agent.stop", reason: "time budget" });
+      break;
+    }
 
-  const progressSaved = await upsertProgress(learnerId, key, "started", lessonId ?? undefined);
-  trace.push({ step: "save_progress", saved: progressSaved });
+    const reply = await callWithTools(messages, TOOLS);
+    messages.push(reply);
 
+    if (reply.tool_calls?.length) {
+      for (const call of reply.tool_calls) {
+        let result: ToolResult;
+        try {
+          result = await runTool(call, state);
+        } catch (e) {
+          // Infrastructure failures (DB, lesson writer) end the run.
+          trace.push({ step: "agent.tool", turn: step, tool: call.function.name, ok: false });
+          throw e;
+        }
+        trace.push({
+          step: "agent.tool",
+          turn: step,
+          tool: call.function.name,
+          ok: !("error" in result),
+          ...("error" in result ? { error: result.error } : {}),
+        });
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+      }
+      continue;
+    }
+
+    // A reply without tool calls means the agent thinks it's done.
+    if (state.written) {
+      tutorNote = reply.content?.trim() || null;
+      trace.push({ step: "agent.finish", turn: step });
+      break;
+    }
+    if (nudged) break;
+    nudged = true;
+    trace.push({ step: "agent.nudge", turn: step, reason: "finished without writing a module" });
+    messages.push({
+      role: "user",
+      content: "You haven't written the module yet. Call write_module (after create_course if needed), then reply with your note.",
+    });
+  }
+
+  if (!state.written || !state.course) {
+    throw new Error("The tutor agent stopped without writing a module.");
+  }
+
+  // Reload so the response reflects exactly what was saved.
+  const saved = await db.getCourse(learnerId, state.key);
+  const w = state.written;
   return {
-    lesson,
-    score,
-    passed,
-    saved: lessonId !== null,
+    kind: "lesson",
+    course: toCourseView(saved ?? state.course),
+    moduleIndex: w.moduleIndex,
+    lessonId: w.lessonId,
+    lesson: w.lesson,
+    score: w.score,
+    passed: w.passed,
+    saved: w.lessonId !== null,
+    resumed: false,
+    tutorNote,
     trace,
-    history,
   };
 }

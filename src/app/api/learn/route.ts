@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runLearningHarness } from "@/lib/harness";
+import { runTutor } from "@/lib/harness";
 import {
   MAX_TOPIC_LENGTH,
   cleanTopic,
@@ -10,11 +10,12 @@ import {
   tooManyRequests,
 } from "@/lib/requestGuards";
 
-// The harness makes several model calls; give it up to 5 minutes.
+// The tutor agent makes several model calls; give it up to 5 minutes.
 export const maxDuration = 300;
 
-// Each lesson costs several model calls, so keep this tight.
-const LIMIT_PER_IP = 6;
+// Each new module costs several model calls, so keep this tight (resuming an
+// unfinished module is free but goes through the same route).
+const LIMIT_PER_IP = 12;
 const LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await runLearningHarness(topic, learnerId);
+    const result = await runTutor(topic, learnerId);
     return NextResponse.json(result);
   } catch (error) {
     return serverError(error, "Failed to generate lesson. Please try again.");
