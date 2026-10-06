@@ -24,14 +24,14 @@ export function SiteHeader({ learnerId, courseCount }: { learnerId: string; cour
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <a href="#" className="group flex items-center gap-3">
           <span className="font-display flex h-9 w-9 items-center justify-center rounded-[10px] bg-espresso text-lg text-peach italic shadow-sm transition-transform duration-300 group-hover:-rotate-6">
-            L
+            S
           </span>
           <span className="leading-tight">
             <span className="font-display block text-[17px] font-medium text-espresso">
-              Learning Agent
+              StudyBuddy
             </span>
             <span className="hidden text-[11px] tracking-wide text-taupe sm:block">
-              a tutor with a memory
+              an AI tutor with a memory
             </span>
           </span>
         </a>
