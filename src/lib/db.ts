@@ -48,6 +48,23 @@ export type AttemptRow = { question_index: number; chosen: string; correct: bool
 const LESSON_COLUMNS = "id, course_id, module_index, topic, score, created_at, completed_at, lesson_data";
 const COURSE_WITH_LESSONS = `*, lessons(${LESSON_COLUMNS})`;
 
+// ---------- Health check ----------
+/** Reads one row's worth of the columns the app needs from each table. */
+export async function checkTables() {
+  const checks: [string, string][] = [
+    ["courses", "id, topic_key, modules, current_module, status"],
+    ["lessons", "id, course_id, module_index, completed_at"],
+    ["attempts", "id, lesson_id, correct"],
+    ["progress", "id, topic, status"],
+  ];
+  const results: Record<string, string> = {};
+  for (const [table, columns] of checks) {
+    const { error } = await supabase().from(table).select(columns).limit(1);
+    results[table] = error ? `error: ${error.message}` : "ok";
+  }
+  return results;
+}
+
 // ---------- Learner history ----------
 export async function getLearnerHistory(learnerId: string) {
   const { data, error } = await supabase()
