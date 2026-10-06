@@ -1,22 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { CustomCursor } from "@/components/CustomCursor";
+import { LessonView } from "@/components/LessonView";
+import { Library } from "@/components/Library";
+import { LessonSkeleton, OrbitDots, StatusCycle, TopProgressBar } from "@/components/LoadingIndicator";
+import { MagneticButton } from "@/components/MagneticButton";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SplitHeading, charCount } from "@/components/SplitHeading";
+import { TopicInput } from "@/components/TopicInput";
+import type { Lesson, LessonRow, TraceStep } from "@/components/types";
 
-type Lesson = {
-  title: string;
-  objective: string;
-  estimatedMinutes: number;
-  concepts: { name: string; explanation: string; example: string }[];
-  questions: { question: string; options: string[]; correctAnswer: string; explanation: string }[];
-};
+const SUGGESTIONS = ["Stoicism", "Game Theory", "Epistemology", "Photosynthesis"];
 
-type LessonRow = {
-  id: number;
-  topic: string;
-  score: number | null;
-  created_at: string;
-  lesson_data: Lesson;
-};
+// Page entrance timeline (ms). The heading types in character by character,
+// then subtitle → input row → library follow 100ms apart. ~1.4s in total.
+const HEADING = "What do you want to learn?";
+const CHAR_START = 50;
+const CHAR_STAGGER = 25;
+const CHAR_DURATION = 300;
+const HEADING_END = CHAR_START + (charCount(HEADING) - 1) * CHAR_STAGGER + CHAR_DURATION;
+const SUBTITLE_AT = HEADING_END + 25;
+const INPUT_AT = SUBTITLE_AT + 100;
+const LIBRARY_AT = INPUT_AT + 100;
+
+const intro = (ms: number) => ({ "--intro-delay": `${ms}ms` }) as CSSProperties;
+// Library rows arrive after a fetch; only wait for whatever is left of the intro.
+const libraryIntroDelay = () => Math.max(0, LIBRARY_AT - performance.now());
 
 function getOrCreateLearnerId(): string {
   if (typeof window === "undefined") return "demo-user";
@@ -27,19 +37,25 @@ function getOrCreateLearnerId(): string {
   }
   return id;
 }
+const noSubscribe = () => () => {};
+
+// The final evaluation score lives in the harness trace.
+function scoreFromTrace(trace: TraceStep[]): number | null {
+  const evals = trace.filter((t) => t?.step === "evaluate" && typeof t.score === "number");
+  return evals.length ? (evals[evals.length - 1].score ?? null) : null;
+}
 
 export default function Home() {
   const [topic, setTopic] = useState("");
-  const [learnerId, setLearnerId] = useState<string>("");
+  // localStorage-backed; empty during SSR, filled in on hydration.
+  const learnerId = useSyncExternalStore(noSubscribe, getOrCreateLearnerId, () => "");
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [trace, setTrace] = useState<any[]>([]);
+  const [lessonScore, setLessonScore] = useState<number | null>(null);
+  const [lessonKey, setLessonKey] = useState(0);
+  const [trace, setTrace] = useState<TraceStep[]>([]);
   const [library, setLibrary] = useState<LessonRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setLearnerId(getOrCreateLearnerId());
-  }, []);
 
   useEffect(() => {
     if (learnerId) loadLibrary(learnerId);
@@ -56,7 +72,7 @@ export default function Home() {
   }
 
   async function createLesson() {
-    if (!topic.trim()) return;
+    if (!topic.trim() || loading) return;
     setLoading(true);
     setError("");
     setLesson(null);
@@ -70,6 +86,8 @@ export default function Home() {
       if (!response.ok) throw new Error(data.details || data.error);
       setLesson(data.lesson);
       setTrace(data.trace);
+      setLessonScore(scoreFromTrace(data.trace ?? []));
+      setLessonKey((k) => k + 1);
       loadLibrary(learnerId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -79,225 +97,119 @@ export default function Home() {
   }
 
   function openPastLesson(row: LessonRow) {
+    setError("");
     setLesson(row.lesson_data);
+    setLessonScore(row.score);
+    setLessonKey((k) => k + 1);
     setTrace([{ step: "loaded_from_library", lessonId: row.id, topic: row.topic }]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() =>
+      document.getElementById("lesson")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
   }
 
   return (
-    <main className="min-h-screen bg-[#faf5ef] text-[#3a2a1e]">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#664930] font-bold text-[#FFDBBB] shadow-sm">
-              L
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-[#3a2a1e]">Learning Agent</h1>
-              <p className="text-xs text-[#997E67]">agentic tutor · persistent memory</p>
-            </div>
-          </div>
-          {learnerId && (
-            <span className="rounded-full border border-[#CCBEB1] bg-white/70 px-3 py-1 text-xs text-[#664930]">
-              {learnerId}
-            </span>
-          )}
-        </header>
+    <>
+      <CustomCursor />
+      {loading && <TopProgressBar />}
 
-        {/* Hero */}
-        <div className="mt-12">
-          <h2 className="text-3xl font-bold tracking-tight text-[#3a2a1e]">
-            What do you want to learn?
-          </h2>
-          <p className="mt-2 text-sm text-[#664930]">
-            Enter any topic. The agent will design a 5–10 minute interactive lesson and remember
-            it for next time.
-          </p>
-        </div>
+      <main className="relative z-[1] min-h-screen text-espresso">
+        <SiteHeader learnerId={learnerId} lessonCount={library.length} />
 
-        {/* Input */}
-        <div className="mt-6 flex gap-2">
-          <input
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createLesson()}
-            placeholder="e.g. Stoicism, Epistemology, Game Theory…"
-            className="flex-1 rounded-xl border border-[#CCBEB1] bg-white px-4 py-3 text-[#3a2a1e] placeholder-[#997E67] outline-none transition focus:border-[#997E67] focus:ring-2 focus:ring-[#FFDBBB]"
-          />
-          <button
-            onClick={createLesson}
-            disabled={loading}
-            className="rounded-xl bg-[#664930] px-6 py-3 font-medium text-[#FFDBBB] shadow-sm transition hover:bg-[#553c27] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Working…" : "Learn"}
-          </button>
-        </div>
+        <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6">
+          {/* Hero */}
+          <section className="pt-12 sm:pt-20">
+            <p className="intro text-xs font-medium uppercase tracking-[0.2em] text-taupe" style={intro(0)}>
+              A lesson in ten minutes or less
+            </p>
+            <SplitHeading
+              text={HEADING}
+              italicWords={["learn?"]}
+              className="font-display mt-4 text-4xl leading-[1.08] font-medium tracking-tight text-espresso sm:text-6xl"
+            />
+            <p
+              className="intro mt-5 max-w-xl text-[15px] leading-relaxed text-coffee sm:text-base"
+              style={intro(SUBTITLE_AT)}
+            >
+              Name any topic. The agent drafts a short lesson, has it reviewed before you see it, and
+              remembers what you&rsquo;ve studied for next time.
+            </p>
 
-        {loading && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-[#664930]">
-            <span className="flex gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#997E67] animate-dot-1" />
-              <span className="h-1.5 w-1.5 rounded-full bg-[#997E67] animate-dot-2" />
-              <span className="h-1.5 w-1.5 rounded-full bg-[#997E67] animate-dot-3" />
-            </span>
-            generating · evaluating · saving
-          </div>
-        )}
+            <div className="intro" style={intro(INPUT_AT)}>
+              {/* Orbiting dots sit above the input while the harness runs. */}
+              <div className="mt-6 flex h-6 items-center">{loading && <OrbitDots />}</div>
 
-        {error && (
-          <div className="mt-6 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-            <strong className="font-semibold">Error:</strong> {error}
-          </div>
-        )}
-
-        {/* Library */}
-        {library.length > 0 && (
-          <section className="mt-12">
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-sm font-medium uppercase tracking-wider text-[#997E67]">
-                My Lessons
-              </h3>
-              <span className="text-xs text-[#997E67]">{library.length} saved</span>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {library.map((row) => (
-                <button
-                  key={row.id}
-                  onClick={() => openPastLesson(row)}
-                  className="group rounded-xl border border-[#CCBEB1] bg-white p-4 text-left transition hover:border-[#997E67] hover:bg-[#FFDBBB]/30"
+              <form
+                className="mt-1 flex flex-col gap-2 sm:flex-row"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createLesson();
+                }}
+              >
+                <TopicInput value={topic} onChange={setTopic} />
+                <MagneticButton
+                  type="submit"
+                  disabled={loading || !topic.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-[14px] px-7 py-3.5 font-medium"
                 >
-                  <div className="font-medium capitalize text-[#3a2a1e]">{row.topic}</div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-[#997E67]">
-                    <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                    {row.score != null && (
-                      <>
-                        <span>·</span>
-                        <span className="rounded-md bg-[#FFDBBB] px-1.5 py-0.5 text-[#664930]">
-                          score {row.score}
-                        </span>
-                      </>
-                    )}
+                  <span>{loading ? "Working…" : "Learn"}</span>
+                  {!loading && (
+                    <span aria-hidden className="btn-arrow">
+                      →
+                    </span>
+                  )}
+                </MagneticButton>
+              </form>
+
+              {loading ? (
+                <StatusCycle />
+              ) : (
+                !lesson && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-taupe">Try</span>
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setTopic(s)}
+                        className="rounded-full border border-beige/80 bg-paper/60 px-3 py-1 text-xs text-coffee transition-colors duration-200 hover:border-taupe hover:bg-peach/50 hover:text-espresso"
+                      >
+                        {s}
+                      </button>
+                    ))}
                   </div>
-                </button>
-              ))}
+                )
+              )}
             </div>
           </section>
-        )}
 
-        {/* Lesson display */}
-        {lesson && (
-          <article className="mt-12 animate-fade-in space-y-8">
-            <header>
-              <p className="text-xs uppercase tracking-wider text-[#997E67]">
-                {lesson.estimatedMinutes} minute lesson
-              </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#3a2a1e]">
-                {lesson.title}
-              </h2>
-              <p className="mt-3 text-[#664930]">{lesson.objective}</p>
-            </header>
+          {loading && <LessonSkeleton />}
 
-            {lesson.concepts.map((c) => (
-              <section
-                key={c.name}
-                className="rounded-2xl border border-[#CCBEB1] bg-white p-6 shadow-sm"
-              >
-                <h3 className="text-lg font-semibold text-[#3a2a1e]">{c.name}</h3>
-                <p className="mt-3 leading-relaxed text-[#3a2a1e]">{c.explanation}</p>
-                <div className="mt-4 rounded-xl border border-[#CCBEB1] bg-[#FFDBBB]/40 p-4 text-sm">
-                  <span className="font-medium text-[#664930]">Example · </span>
-                  <span className="text-[#3a2a1e]">{c.example}</span>
-                </div>
-              </section>
-            ))}
-
-            {lesson.questions.length > 0 && (
-              <section>
-                <h3 className="text-xl font-semibold text-[#3a2a1e]">
-                  Check your understanding
-                </h3>
-                <div className="mt-4 space-y-4">
-                  {lesson.questions.map((q, i) => (
-                    <QuizQuestion key={i} index={i} question={q} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <details className="rounded-2xl border border-[#CCBEB1] bg-white p-5 shadow-sm">
-              <summary className="cursor-pointer text-sm font-medium text-[#664930] hover:text-[#3a2a1e]">
-                Harness trace
-              </summary>
-              <pre className="mt-4 max-h-96 overflow-auto rounded-lg bg-[#3a2a1e] p-4 text-xs text-[#FFDBBB]">
-                {JSON.stringify(trace, null, 2)}
-              </pre>
-            </details>
-          </article>
-        )}
-      </div>
-    </main>
-  );
-}
-
-function QuizQuestion({
-  question,
-  index,
-}: {
-  question: { question: string; options: string[]; correctAnswer: string; explanation: string };
-  index: number;
-}) {
-  const [picked, setPicked] = useState<string | null>(null);
-  const correct = picked === question.correctAnswer;
-
-  return (
-    <div className="rounded-2xl border border-[#CCBEB1] bg-white p-6 shadow-sm">
-      <div className="flex items-start gap-3">
-        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#FFDBBB] text-xs font-semibold text-[#664930]">
-          {index + 1}
-        </span>
-        <p className="font-medium text-[#3a2a1e]">{question.question}</p>
-      </div>
-      <div className="mt-4 space-y-2">
-        {question.options.map((o) => {
-          const isPicked = picked === o;
-          const isCorrect = o === question.correctAnswer;
-          let cls =
-            "block w-full rounded-xl border px-4 py-3 text-left text-sm transition ";
-          if (picked === null) {
-            cls +=
-              "border-[#CCBEB1] bg-[#faf5ef] text-[#3a2a1e] hover:border-[#997E67] hover:bg-[#FFDBBB]/30";
-          } else if (isCorrect) {
-            cls += "border-emerald-500 bg-emerald-50 text-emerald-800";
-          } else if (isPicked) {
-            cls += "border-red-400 bg-red-50 text-red-800";
-          } else {
-            cls += "border-[#CCBEB1] bg-[#faf5ef] text-[#997E67] opacity-60";
-          }
-          return (
-            <button
-              key={o}
-              disabled={picked !== null}
-              onClick={() => setPicked(o)}
-              className={cls}
+          {error && (
+            <div
+              role="alert"
+              className="animate-fade-in mt-8 flex gap-3 rounded-2xl border border-red-400/40 bg-red-50 p-4 text-sm text-red-800"
             >
-              {o}
-            </button>
-          );
-        })}
-      </div>
-      {picked !== null && (
-        <div
-          className={`mt-4 rounded-xl border p-4 text-sm ${
-            correct
-              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-              : "border-red-300 bg-red-50 text-red-800"
-          }`}
-        >
-          <div className="font-medium">{correct ? "✓ Correct" : "✗ Not quite"}</div>
-          <p className="mt-1 text-[#3a2a1e]">{question.explanation}</p>
+              <span aria-hidden className="mt-px font-semibold">
+                !
+              </span>
+              <div>
+                <p className="font-semibold">The lesson couldn&rsquo;t be prepared.</p>
+                <p className="mt-1 text-espresso/80">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {lesson && <LessonView key={lessonKey} lesson={lesson} score={lessonScore} trace={trace} />}
+
+          {library.length > 0 && (
+            <Library library={library} onOpen={openPastLesson} introDelay={libraryIntroDelay} />
+          )}
         </div>
-      )}
-    </div>
+
+        <footer className="border-t border-beige/60 py-8 text-center text-xs text-taupe">
+          Every lesson is scored by a second pass before it reaches you.
+        </footer>
+      </main>
+    </>
   );
 }

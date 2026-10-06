@@ -3,31 +3,591 @@
 :root {
   --background: #faf5ef;
   --foreground: #3a2a1e;
+  --peach: #ffdbbb;
+  --beige: #ccbeb1;
+  --taupe: #997e67;
+  --coffee: #664930;
+  --espresso: #3a2a1e;
+  --paper: #fffdf9;
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-cream: var(--background);
+  --color-paper: var(--paper);
+  --color-peach: var(--peach);
+  --color-beige: var(--beige);
+  --color-taupe: var(--taupe);
+  --color-coffee: var(--coffee);
+  --color-espresso: var(--espresso);
+
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+/* Static cream base with a faint warm wash; the cursor glow layers on top. */
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(255, 219, 187, 0.35), transparent 45%),
+    radial-gradient(circle at 100% 30%, rgba(204, 190, 177, 0.18), transparent 40%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1); }
+::selection {
+  background: var(--peach);
+  color: var(--espresso);
 }
-.animate-dot-1 { animation: pulse-dot 1.2s ease-in-out infinite; }
-.animate-dot-2 { animation: pulse-dot 1.2s ease-in-out 0.2s infinite; }
-.animate-dot-3 { animation: pulse-dot 1.2s ease-in-out 0.4s infinite; }
+
+.font-display {
+  font-family: var(--font-serif);
+  font-variation-settings: "SOFT" 50, "opsz" 96;
+}
+
+:focus-visible {
+  outline: 2px solid var(--coffee);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ============ 1. Custom cursor ============ */
+@media (hover: hover) and (pointer: fine) {
+  html.custom-cursor,
+  html.custom-cursor * {
+    cursor: none !important;
+  }
+}
+
+.cursor-dot,
+.cursor-ring,
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cursor-dot {
+  z-index: 9999;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--peach);
+  /* Hairline so a peach dot stays findable on cream. */
+  box-shadow: 0 0 0 1px rgba(102, 73, 48, 0.45);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.cursor-ring {
+  z-index: 9998;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+}
+
+.cursor-ring-inner {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 219, 187, 0.55);
+  border: 1.5px solid var(--peach);
+  box-shadow: 0 0 12px 3px var(--peach);
+  filter: blur(1.5px);
+  opacity: 0;
+  transition:
+    transform 260ms var(--ease-spring),
+    opacity 220ms ease;
+}
+
+html.cursor-visible .cursor-dot {
+  opacity: 1;
+}
+html.cursor-visible .cursor-ring[data-state="bg"] .cursor-ring-inner {
+  opacity: 0.2;
+}
+html.cursor-visible .cursor-ring[data-state="content"] .cursor-ring-inner {
+  opacity: 0.3;
+}
+html.cursor-visible .cursor-ring[data-state="hover"] .cursor-ring-inner {
+  opacity: 0.6;
+  transform: scale(1.6); /* 64px */
+}
+html.cursor-visible .cursor-ring[data-pressed] .cursor-ring-inner {
+  transform: scale(0.75); /* 30px */
+}
+
+/* ============ 2. Cursor-reactive background ============ */
+.cursor-glow {
+  z-index: 0;
+  width: 1200px;
+  height: 1200px;
+  margin: -600px 0 0 -600px;
+  background: radial-gradient(circle closest-side, rgba(255, 219, 187, 0.12), rgba(255, 219, 187, 0));
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+html.cursor-visible .cursor-glow {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cursor-dot,
+  .cursor-ring,
+  .cursor-glow {
+    display: none;
+  }
+}
+
+/* ============ 3. Magnetic primary button ============ */
+.btn-primary {
+  background-color: var(--coffee);
+  color: var(--peach);
+  box-shadow: 0 1px 2px rgba(58, 42, 30, 0.12);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: #573d27;
+  box-shadow: 0 10px 24px -10px rgba(58, 42, 30, 0.55);
+}
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.btn-primary .btn-arrow {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+.btn-primary:hover:not(:disabled) .btn-arrow {
+  transform: translateX(2px);
+}
+
+.magnetic {
+  transition:
+    translate 400ms ease-out,
+    scale 250ms var(--ease-spring),
+    background-color 200ms ease,
+    box-shadow 200ms ease,
+    opacity 200ms ease;
+}
+.magnetic[data-magnet="active"] {
+  transition:
+    translate 140ms ease-out,
+    scale 250ms var(--ease-spring),
+    background-color 200ms ease,
+    box-shadow 200ms ease,
+    opacity 200ms ease;
+}
+.magnetic:active:not(:disabled) {
+  scale: 0.97;
+  transition:
+    translate 140ms ease-out,
+    scale 80ms ease-out,
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+/* ============ 4. Topic input ============ */
+.topic-input {
+  border: 1px solid var(--beige);
+  border-radius: 14px;
+  background: var(--paper);
+  caret-color: var(--coffee);
+  outline: none;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.topic-input:hover {
+  border-color: #b8a797;
+}
+.topic-input:focus,
+.topic-input:focus-visible {
+  border-color: var(--taupe);
+  box-shadow: 0 0 0 4px rgba(255, 219, 187, 0.4);
+  outline: none;
+}
+.topic-input::placeholder {
+  color: var(--taupe);
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+.topic-input:focus::placeholder {
+  opacity: 0;
+}
+.topic-underline {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 7px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--peach);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 300ms ease-out;
+  pointer-events: none;
+}
+.topic-underline[data-on="true"] {
+  transform: scaleX(1);
+}
+
+/* ============ 5. Page entrance ============ */
+@keyframes char-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Timing mirrors CHAR_START / CHAR_STAGGER / CHAR_DURATION in page.tsx. */
+.split-char {
+  display: inline-block;
+  animation: char-in 300ms var(--ease-out-expo) both;
+  animation-delay: calc(50ms + var(--ci, 0) * 25ms);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.intro {
+  animation: fade-up 300ms ease-out both;
+  animation-delay: var(--intro-delay, 0ms);
+}
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-in { animation: fade-in 0.3s ease-out; }
+.animate-fade-in {
+  animation: fade-in 350ms ease-out both;
+}
+
+/* ============ 6 + 10. Lesson stagger / scroll reveals ============ */
+.reveal {
+  opacity: 0;
+  transform: translateY(var(--reveal-y, 12px));
+  transition:
+    opacity var(--reveal-dur, 500ms) ease-out var(--reveal-delay, 0ms),
+    transform var(--reveal-dur, 500ms) ease-out var(--reveal-delay, 0ms);
+}
+.reveal[data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+.concept-card {
+  transition:
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+.concept-card:hover {
+  border-color: var(--beige);
+  box-shadow: 0 18px 40px -24px rgba(102, 73, 48, 0.35);
+}
+
+/* ============ 7. Loading ============ */
+@keyframes indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+.progress-indeterminate {
+  animation: indeterminate 1.3s ease-in-out infinite alternate;
+  box-shadow: 0 0 6px var(--peach);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.orbit {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  animation: spin 1.2s linear infinite;
+}
+.orbit > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--peach);
+  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.4);
+  transform: rotate(calc(var(--k) * 120deg)) translateY(-7px);
+}
+
+.status-phrase {
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+.status-phrase[data-active="true"] {
+  opacity: 1;
+}
+
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #efe6dc 0%, #f8f1e9 50%, #efe6dc 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 6px;
+}
+
+/* ============ 8. Quiz options ============ */
+.quiz-option {
+  border-color: var(--beige);
+  background-color: var(--background);
+  color: var(--espresso);
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease,
+    opacity 200ms ease;
+}
+.quiz-letter {
+  border-color: var(--beige);
+  background: var(--paper);
+  color: var(--taupe);
+  transition: all 200ms ease;
+}
+.quiz-option[data-state="idle"]:hover {
+  border-color: var(--taupe);
+  background-color: rgba(255, 219, 187, 0.2);
+}
+.quiz-option[data-state="idle"]:hover .quiz-letter {
+  border-color: var(--taupe);
+  color: var(--coffee);
+}
+
+.quiz-option[data-state="correct"] {
+  border-color: var(--color-emerald-500, #10b981);
+  background-color: var(--color-emerald-50, #ecfdf5);
+  color: var(--color-emerald-900, #064e3b);
+}
+.quiz-option[data-state="correct"] .quiz-letter {
+  border-color: var(--color-emerald-500, #10b981);
+  background: var(--color-emerald-500, #10b981);
+  color: white;
+}
+.quiz-option[data-state="correct"][data-picked] {
+  animation: pop 250ms ease-out;
+}
+
+.quiz-option[data-state="wrong"] {
+  border-color: var(--color-red-400, #f87171);
+  background-color: var(--color-red-50, #fef2f2);
+  color: var(--color-red-900, #7f1d1d);
+  animation: shake 250ms ease-in-out;
+}
+.quiz-option[data-state="wrong"] .quiz-letter {
+  border-color: var(--color-red-400, #f87171);
+  background: var(--color-red-400, #f87171);
+  color: white;
+}
+
+.quiz-option[data-state="dimmed"] {
+  opacity: 0.4;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+}
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+.check-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 350ms ease-out 80ms forwards;
+}
+
+@keyframes explain-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.quiz-explain {
+  animation: explain-in 300ms ease-out 200ms both;
+}
+
+@keyframes badge-in {
+  from { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+.animate-badge {
+  animation: badge-in 400ms var(--ease-spring) both;
+}
+
+/* ============ 9. Library card lift + tilt ============ */
+.tilt-card {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
+    translateY(var(--lift, 0px));
+  transition:
+    transform 400ms ease-out,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.tilt-card[data-tilting] {
+  transition:
+    transform 120ms ease-out,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+.tilt-card:hover {
+  --lift: -3px;
+  border-color: var(--taupe);
+  box-shadow: 0 16px 30px -18px rgba(102, 73, 48, 0.45);
+}
+.score-pill {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+.tilt-card:hover .score-pill {
+  transform: scale(0.94);
+  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.55);
+}
+.open-hint {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
+}
+.tilt-card:hover .open-hint,
+.tilt-card:focus-visible .open-hint {
+  opacity: 1;
+  transform: none;
+}
+
+/* ============ 11. Harness trace ============ */
+.trace-toggle {
+  transition: color 200ms ease;
+}
+.trace-toggle .chevron {
+  transition: transform 300ms ease;
+}
+.trace-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+.trace-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 400ms ease-out;
+}
+.trace-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.trace-body {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.trace-collapse[data-open="true"] .trace-body {
+  opacity: 1;
+  transition: opacity 250ms ease 200ms;
+}
+.copy-btn {
+  transition: background-color 200ms ease;
+}
+.copy-btn:hover {
+  background-color: #f6c9a1;
+}
+.copy-btn[data-pop] {
+  animation: press-pop 220ms var(--ease-spring);
+}
+@keyframes press-pop {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+/* ============ 12. Learner pill + toast ============ */
+.learner-pill {
+  transition:
+    padding 250ms var(--ease-out-expo),
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+.learner-tip {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+.group\/pill:hover .learner-tip,
+.group\/pill:focus-within .learner-tip {
+  opacity: 1;
+  transform: none;
+  transition-delay: 150ms;
+}
+
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+.toast {
+  animation: toast 1500ms ease forwards;
+}
+
+/* ============ Reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .tilt-card {
+    transform: none;
+  }
+  .check-draw {
+    stroke-dashoffset: 0;
+  }
+  /* Keyframes whose end state is hidden: show them statically instead. */
+  .toast {
+    animation: none;
+    transform: translateX(-50%);
+  }
+  .progress-indeterminate {
+    animation: none;
+    transform: translateX(100%);
+  }
+}

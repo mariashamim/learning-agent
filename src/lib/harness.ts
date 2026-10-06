@@ -12,14 +12,23 @@ const LessonSchema = z.object({
       example: z.string(),
     })
   ),
-  questions: z.array(
-    z.object({
-      question: z.string(),
-      options: z.array(z.string()),
-      correctAnswer: z.string(),
-      explanation: z.string(),
-    })
-  ),
+  // Every lesson must carry a usable quiz: 2-4 questions, 4 options each,
+  // and the correct answer must be one of the options.
+  questions: z
+    .array(
+      z
+        .object({
+          question: z.string(),
+          options: z.array(z.string()).length(4),
+          correctAnswer: z.string(),
+          explanation: z.string(),
+        })
+        .refine((q) => q.options.includes(q.correctAnswer), {
+          message: "correctAnswer must exactly match one of the options",
+        })
+    )
+    .min(2)
+    .max(4),
 });
 
 export type Lesson = z.infer<typeof LessonSchema>;
@@ -118,6 +127,33 @@ const lessonJsonSchema = {
   additionalProperties: false,
 };
 
+// Shared by generate and revise so a first draft gets the same quiz rules.
+const LESSON_REQUIREMENTS = `REQUIREMENTS:
+- 2-3 concepts, each with a clear explanation and a concrete real-world example
+- EXACTLY 3 multiple-choice questions (never fewer than 2, never more than 4)
+- Each question must have EXACTLY 4 options
+- The correctAnswer field must be an EXACT string match of one of the options
+- Each question needs a 1-2 sentence explanation of why the answer is correct
+- Total lesson time: 5-10 minutes
+
+Return only JSON matching the schema. The questions array MUST NOT be empty.`;
+
+// The model occasionally ignores the quiz rules. Retry once on a validation
+// failure (bounded), then give up with a clear error.
+const MAX_LESSON_ATTEMPTS = 2;
+
+async function requestValidLesson(request: () => Promise<unknown>): Promise<Lesson> {
+  let lastError: z.ZodError | undefined;
+  for (let attempt = 1; attempt <= MAX_LESSON_ATTEMPTS; attempt++) {
+    const result = LessonSchema.safeParse(await request());
+    if (result.success) return result.data;
+    lastError = result.error;
+  }
+  throw new Error(
+    `Model did not return a valid lesson with a quiz after ${MAX_LESSON_ATTEMPTS} attempts: ${lastError?.message}`
+  );
+}
+
 const evaluationJsonSchema = {
   type: "object",
   properties: {
@@ -143,14 +179,16 @@ async function generateLesson(
             "\n"
           )}\n\nWhen relevant, connect the new lesson to what they already know. Avoid repeating introductory material they've already covered.`;
 
-  const result = await callModel(
-    `You are an expert instructional designer. Create a short interactive lesson.
-The lesson should take 5-10 minutes. Teach concepts clearly with concrete examples.
-Include 2-3 questions that test understanding. Return only JSON.`,
-    `${historyContext}\n\nCreate a beginner-friendly lesson about: ${topic}`,
-    lessonJsonSchema
+  return requestValidLesson(() =>
+    callModel(
+      `You are an expert instructional designer. Create a short interactive lesson.
+Teach concepts clearly with concrete examples.
+
+${LESSON_REQUIREMENTS}`,
+      `${historyContext}\n\nCreate a beginner-friendly lesson about: ${topic}`,
+      lessonJsonSchema
+    )
   );
-  return LessonSchema.parse(result);
 }
 
 async function evaluateLesson(topic: string, lesson: Lesson): Promise<Evaluation> {
@@ -170,26 +208,19 @@ async function reviseLesson(
   lesson: Lesson,
   evaluation: Evaluation
 ): Promise<Lesson> {
-  const result = await callModel(
-    `You are an expert instructional designer. Create a short interactive lesson.
+  return requestValidLesson(() =>
+    callModel(
+      `You are an expert instructional designer. Create a short interactive lesson.
 
-REQUIREMENTS:
-- 2-3 concepts, each with a clear explanation and a concrete real-world example
-- EXACTLY 3 multiple-choice questions (never fewer than 2, never more than 4)
-- Each question must have EXACTLY 4 options
-- The correctAnswer field must be an EXACT string match of one of the options
-- Each question needs a 1-2 sentence explanation of why the answer is correct
-- Total lesson time: 5-10 minutes
-
-Return only JSON matching the schema. The questions array MUST NOT be empty.`,
-    `Topic: ${topic}\n\nLesson:\n${JSON.stringify(
-      lesson,
-      null,
-      2
-    )}\n\nFeedback:\n${JSON.stringify(evaluation, null, 2)}`,
-    lessonJsonSchema
+${LESSON_REQUIREMENTS}`,
+      `Topic: ${topic}\n\nLesson:\n${JSON.stringify(
+        lesson,
+        null,
+        2
+      )}\n\nFeedback:\n${JSON.stringify(evaluation, null, 2)}`,
+      lessonJsonSchema
+    )
   );
-  return LessonSchema.parse(result);
 }
 
 export async function runLearningHarness(
