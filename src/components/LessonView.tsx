@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { HarnessTrace } from "./HarnessTrace";
 import { QuizQuestion } from "./QuizQuestion";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
-import type { Lesson, TraceStep } from "./types";
+import type { Lesson, LessonStatus, TraceStep } from "./types";
 
 // Entrance timeline (ms): header → concepts (120ms apart) → quiz heading →
 // quiz cards (80ms apart). About one second for a typical lesson.
+const PASS_SCORE = 8;
 const CONCEPT_START = 120;
 const CONCEPT_STAGGER = 120;
 const QUIZ_STAGGER = 80;
@@ -17,10 +18,12 @@ const DURATION = 400;
 export function LessonView({
   lesson,
   score,
+  status,
   trace,
 }: {
   lesson: Lesson;
   score: number | null;
+  status: LessonStatus;
   trace: TraceStep[];
 }) {
   const [answers, setAnswers] = useState<Record<number, boolean>>({});
@@ -48,6 +51,18 @@ export function LessonView({
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-coffee sm:text-lg">
           {lesson.objective}
         </p>
+        {status.passed === false && score != null && (
+          <Notice>
+            This is the agent&rsquo;s best attempt: it scored {score}/10, below the {PASS_SCORE}/10
+            quality bar, after revision.
+          </Notice>
+        )}
+        {status.saved === false && (
+          <Notice>
+            This lesson couldn&rsquo;t be saved, so it won&rsquo;t appear in your library. You can
+            still study it now.
+          </Notice>
+        )}
       </Reveal>
 
       <div className="mt-10 space-y-6">
@@ -79,6 +94,13 @@ export function LessonView({
           </Reveal>
         ))}
       </div>
+
+      {total === 0 && (
+        <p className="mt-12 text-sm text-taupe">
+          This lesson was saved before quizzes were required, so it has no questions. Search the
+          topic again for a version with a quiz.
+        </p>
+      )}
 
       {total > 0 && (
         <section className="mt-16">
@@ -143,5 +165,13 @@ function QuizProgress({ answered, correct, total }: { answered: number; correct:
         {answered > 0 && <> · {correct} right</>}
       </span>
     </div>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-5 rounded-xl border border-beige bg-peach/30 px-4 py-3 text-sm leading-relaxed text-coffee">
+      {children}
+    </p>
   );
 }

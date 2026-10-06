@@ -44,6 +44,9 @@ type Evaluation = z.infer<typeof EvaluationSchema>;
 
 const MODEL = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4.1-flash";
 
+// A single model call may not hang the request: abort after this long.
+const MODEL_TIMEOUT_MS = 60_000;
+
 async function callModel(
   system: string,
   user: string,
@@ -56,6 +59,7 @@ async function callModel(
     "https://openrouter.ai/api/v1/chat/completions",
     {
       method: "POST",
+      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
@@ -168,7 +172,7 @@ const evaluationJsonSchema = {
 
 async function generateLesson(
   topic: string,
-  history: { topic: string; status: string }[] = []
+  history: HistoryEntry[] = []
 ): Promise<Lesson> {
   const historyContext =
     history.length === 0
@@ -223,26 +227,55 @@ ${LESSON_REQUIREMENTS}`,
   );
 }
 
-export async function runLearningHarness(
-  topic: string,
-  learnerId: string = "demo-user"
-) {
-  const trace: any[] = [];
+// ---------- The agent loop ----------
 
-  const history = await getLearnerHistory(learnerId);
+// A lesson must score at least this to count as passing evaluation.
+const PASS_SCORE = 8;
+// Bounded iteration: at most this many evaluations (so at most one revision).
+const MAX_ITERATIONS = 2;
+// Don't start a revision this late: a revision plus its re-evaluation can
+// take ~3 minutes in the worst case, and the route allows 5.
+const REVISE_DEADLINE_MS = 100_000;
+
+export type TraceEntry = { step: string; [key: string]: unknown };
+type HistoryEntry = { topic: string; status: string };
+
+/** Case- and whitespace-insensitive key, so "Stoicism" and " stoicism" are one topic. */
+export function topicKey(topic: string) {
+  return topic.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+export async function runLearningHarness(topic: string, learnerId: string) {
+  const startedAt = Date.now();
+  const trace: TraceEntry[] = [];
+  const key = topicKey(topic);
+
+  const history = (await getLearnerHistory(learnerId)) as HistoryEntry[];
   trace.push({
     step: "load_history",
     entries: history.length,
-    topics: history.map((h: any) => h.topic),
+    topics: history.map((h) => h.topic),
   });
 
-  let lesson = await generateLesson(topic, history);
+  let candidate = await generateLesson(topic, history);
   trace.push({ step: "generate", result: "Lesson generated" });
 
-  let finalScore = 0;
-  for (let iteration = 1; iteration <= 2; iteration++) {
-    const evaluation = await evaluateLesson(topic, lesson);
-    finalScore = evaluation.score;
+  // Only lessons that have been evaluated may be shown. Track the best one;
+  // a revision that fails or can't be re-evaluated is discarded.
+  let best: { lesson: Lesson; score: number } | null = null;
+
+  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+    let evaluation: Evaluation;
+    try {
+      evaluation = await evaluateLesson(topic, candidate);
+    } catch (e) {
+      // Nothing evaluated yet means nothing we're allowed to show.
+      if (!best) throw e;
+      trace.push({ step: "evaluate_failed", iteration, error: errorMessage(e) });
+      break;
+    }
 
     trace.push({
       step: "evaluate",
@@ -251,23 +284,42 @@ export async function runLearningHarness(
       approved: evaluation.approved,
       problems: evaluation.problems,
     });
+    if (!best || evaluation.score > best.score) {
+      best = { lesson: candidate, score: evaluation.score };
+    }
 
-    if (evaluation.score >= 8) break;
+    if (evaluation.score >= PASS_SCORE || iteration === MAX_ITERATIONS) break;
+    if (Date.now() - startedAt > REVISE_DEADLINE_MS) {
+      trace.push({ step: "revise_skipped", iteration, reason: "time budget" });
+      break;
+    }
 
-    lesson = await reviseLesson(topic, lesson, evaluation);
-    trace.push({ step: "revise", iteration, result: "Lesson revised" });
+    try {
+      candidate = await reviseLesson(topic, candidate, evaluation);
+      trace.push({ step: "revise", iteration, result: "Lesson revised" });
+    } catch (e) {
+      trace.push({ step: "revise_failed", iteration, error: errorMessage(e) });
+      break;
+    }
   }
 
-  const lessonId = await saveLesson(learnerId, topic, lesson, finalScore);
+  // The loop always evaluates at least once or throws, so best is set.
+  const { lesson, score } = best!;
+  const passed = score >= PASS_SCORE;
+  trace.push({ step: "select", score, passed });
+
+  const lessonId = await saveLesson(learnerId, topic.trim(), lesson, score);
   trace.push({ step: "save_lesson", lessonId });
 
-  const saved = await upsertProgress(
-    learnerId,
-    topic,
-    "started",
-    lessonId ?? undefined
-  );
-  trace.push({ step: "save_progress", saved });
+  const progressSaved = await upsertProgress(learnerId, key, "started", lessonId ?? undefined);
+  trace.push({ step: "save_progress", saved: progressSaved });
 
-  return { lesson, trace, history };
+  return {
+    lesson,
+    score,
+    passed,
+    saved: lessonId !== null,
+    trace,
+    history,
+  };
 }

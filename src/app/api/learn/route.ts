@@ -1,24 +1,49 @@
 import { NextResponse } from "next/server";
 import { runLearningHarness } from "@/lib/harness";
+import {
+  MAX_TOPIC_LENGTH,
+  cleanTopic,
+  clientIp,
+  isValidLearnerId,
+  rateLimit,
+  serverError,
+  tooManyRequests,
+} from "@/lib/requestGuards";
+
+// The harness makes several model calls; give it up to 5 minutes.
+export const maxDuration = 300;
+
+// Each lesson costs several model calls, so keep this tight.
+const LIMIT_PER_IP = 6;
+const LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
+  const limit = rateLimit(`learn:${clientIp(request)}`, LIMIT_PER_IP, LIMIT_WINDOW_MS);
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+
+  let body: unknown;
   try {
-    const body = await request.json();
-    const topic = body.topic;
-    const learnerId = body.learnerId || "demo-user";
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be JSON" }, { status: 400 });
+  }
+  const { topic: rawTopic, learnerId } = (body ?? {}) as Record<string, unknown>;
 
-    if (!topic || typeof topic !== "string") {
-      return NextResponse.json({ error: "Topic is required" }, { status: 400 });
-    }
+  const topic = cleanTopic(rawTopic);
+  if (!topic) {
+    return NextResponse.json(
+      { error: `Topic is required (max ${MAX_TOPIC_LENGTH} characters)` },
+      { status: 400 }
+    );
+  }
+  if (!isValidLearnerId(learnerId)) {
+    return NextResponse.json({ error: "Invalid learnerId" }, { status: 400 });
+  }
 
+  try {
     const result = await runLearningHarness(topic, learnerId);
     return NextResponse.json(result);
   } catch (error) {
-    console.error(error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Failed to generate lesson", details: message },
-      { status: 500 }
-    );
+    return serverError(error, "Failed to generate lesson. Please try again.");
   }
 }

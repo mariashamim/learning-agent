@@ -23,3 +23,6 @@ export type LessonRow = {
 
 // Shape of a harness trace entry; extra fields vary by step.
 export type TraceStep = { step?: string; score?: number; [key: string]: unknown };
+
+/** What the harness reported about a freshly generated lesson. Empty for library lessons. */
+export type LessonStatus = { passed?: boolean; saved?: boolean };

@@ -21,7 +21,9 @@ future lessons based on what they've already studied.
        ├─ load_history  → Supabase: progress table
        ├─ generate      → OpenRouter: lesson JSON
        ├─ evaluate      → OpenRouter: score 0-10
-       ├─ revise        → OpenRouter: improved lesson (if score < 8)
+       ├─ revise        → OpenRouter: improved lesson (if score < 8),
+       │                  then evaluated again
+       ├─ select        → best-scoring *evaluated* version
        ├─ save_lesson   → Supabase: lessons table
        └─ save_progress → Supabase: progress table
        │
@@ -37,9 +39,18 @@ state, tools, constraints, and evaluation around the model.
 return arbitrary prose that breaks the app.
 
 **Evaluation loop.** The harness never trusts the first generation. A separate
-model call scores it, and if the score is below 8, the lesson is revised.
+model call scores it, and if the score is below 8, the lesson is revised and
+the revision is scored too. Only evaluated versions can be shown: the harness
+returns the highest-scoring one, with its real score and a `passed` flag
+(score >= 8). A revision that fails or can't be evaluated is discarded.
+
+**Valid quiz.** Every lesson must have 2-4 questions with exactly 4 options and
+a `correctAnswer` that matches an option. Invalid model output is retried
+once, then the request fails with a clear error.
 
 **Bounded iteration.** The loop runs at most 2 iterations. No infinite loops.
+Each model call times out after 60s, and no revision starts after 100s, so a
+request stays within the route's 300s limit.
 
 **Persistence.** Every lesson and every progress row is written to Supabase.
 The next request can read them.
@@ -48,9 +59,12 @@ The next request can read them.
 
 - `src/lib/harness.ts` — the agent loop
 - `src/lib/db.ts` — Supabase access
+- `src/lib/requestGuards.ts` — input validation, rate limiting, error responses
 - `src/app/api/learn/route.ts` — the endpoint that runs the harness
 - `src/app/api/lessons/route.ts` — read endpoint for the library
-- `src/app/page.tsx` — the UI
+- `src/app/page.tsx` — the page (state + API calls)
+- `src/components/` — UI components
+- `src/hooks/` — cursor, magnetic button, tilt, scroll-reveal, motion prefs
 
 ## Environment
 

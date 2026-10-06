@@ -9,7 +9,7 @@ import { MagneticButton } from "@/components/MagneticButton";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
 import { TopicInput } from "@/components/TopicInput";
-import type { Lesson, LessonRow, TraceStep } from "@/components/types";
+import type { Lesson, LessonRow, LessonStatus, TraceStep } from "@/components/types";
 
 const SUGGESTIONS = ["Stoicism", "Game Theory", "Epistemology", "Photosynthesis"];
 
@@ -28,21 +28,45 @@ const intro = (ms: number) => ({ "--intro-delay": `${ms}ms` }) as CSSProperties;
 // Library rows arrive after a fetch; only wait for whatever is left of the intro.
 const libraryIntroDelay = () => Math.max(0, LIBRARY_AT - performance.now());
 
+// 128 random bits. getRandomValues works on plain-HTTP origins too, unlike
+// crypto.randomUUID, which needs a secure context.
+function newLearnerId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return "learner-" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Cached so useSyncExternalStore always sees the same value, and so the app
+// still works (for this tab) if localStorage is blocked.
+let cachedLearnerId: string | null = null;
+
 function getOrCreateLearnerId(): string {
-  if (typeof window === "undefined") return "demo-user";
-  let id = localStorage.getItem("learner_id");
-  if (!id) {
-    id = "learner-" + Math.random().toString(36).slice(2, 10);
-    localStorage.setItem("learner_id", id);
+  if (cachedLearnerId) return cachedLearnerId;
+  let id: string | null = null;
+  try {
+    id = localStorage.getItem("learner_id");
+    if (!id) {
+      id = newLearnerId();
+      localStorage.setItem("learner_id", id);
+    }
+  } catch {
+    id ??= newLearnerId();
   }
+  cachedLearnerId = id;
   return id;
 }
 const noSubscribe = () => () => {};
 
-// The final evaluation score lives in the harness trace.
-function scoreFromTrace(trace: TraceStep[]): number | null {
-  const evals = trace.filter((t) => t?.step === "evaluate" && typeof t.score === "number");
-  return evals.length ? (evals[evals.length - 1].score ?? null) : null;
+/** Reads an API response, turning non-JSON failures (e.g. a gateway timeout page) into readable errors. */
+async function readJson(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(
+      response.ok
+        ? "The server sent an unreadable response. Please try again."
+        : `The server didn't respond in time (HTTP ${response.status}). Please try again.`
+    );
+  }
 }
 
 export default function Home() {
@@ -51,6 +75,7 @@ export default function Home() {
   const learnerId = useSyncExternalStore(noSubscribe, getOrCreateLearnerId, () => "");
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [lessonScore, setLessonScore] = useState<number | null>(null);
+  const [lessonStatus, setLessonStatus] = useState<LessonStatus>({});
   const [lessonKey, setLessonKey] = useState(0);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [library, setLibrary] = useState<LessonRow[]>([]);
@@ -64,7 +89,7 @@ export default function Home() {
   async function loadLibrary(id: string) {
     try {
       const res = await fetch(`/api/lessons?learnerId=${encodeURIComponent(id)}`);
-      const data = await res.json();
+      const data = await readJson(res);
       if (res.ok) setLibrary(data.lessons ?? []);
     } catch (e) {
       console.error("Failed to load library", e);
@@ -82,11 +107,14 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, learnerId }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.details || data.error);
+      const data = await readJson(response);
+      if (!response.ok) {
+        throw new Error(data.details ? `${data.error} (${data.details})` : data.error);
+      }
       setLesson(data.lesson);
       setTrace(data.trace);
-      setLessonScore(scoreFromTrace(data.trace ?? []));
+      setLessonScore(typeof data.score === "number" ? data.score : null);
+      setLessonStatus({ passed: data.passed, saved: data.saved });
       setLessonKey((k) => k + 1);
       loadLibrary(learnerId);
     } catch (err) {
@@ -100,6 +128,7 @@ export default function Home() {
     setError("");
     setLesson(row.lesson_data);
     setLessonScore(row.score);
+    setLessonStatus({});
     setLessonKey((k) => k + 1);
     setTrace([{ step: "loaded_from_library", lessonId: row.id, topic: row.topic }]);
     requestAnimationFrame(() =>
@@ -199,7 +228,13 @@ export default function Home() {
             </div>
           )}
 
-          {lesson && <LessonView key={lessonKey} lesson={lesson} score={lessonScore} trace={trace} />}
+          {lesson && <LessonView
+              key={lessonKey}
+              lesson={lesson}
+              score={lessonScore}
+              status={lessonStatus}
+              trace={trace}
+            />}
 
           {library.length > 0 && (
             <Library library={library} onOpen={openPastLesson} introDelay={libraryIntroDelay} />

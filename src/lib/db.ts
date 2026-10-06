@@ -75,12 +75,16 @@ export async function upsertProgress(
 }
 
 // ---------- List lessons for a learner ----------
+// Newest first, capped so a long history can't produce a huge response.
+const LIBRARY_LIMIT = 50;
+
 export async function getLearnerLessons(learnerId: string) {
   const { data, error } = await supabase
     .from("lessons")
     .select("id, topic, score, created_at, lesson_data")
     .eq("learner_id", learnerId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(LIBRARY_LIMIT);
 
   if (error) {
     console.error("getLearnerLessons error:", error);

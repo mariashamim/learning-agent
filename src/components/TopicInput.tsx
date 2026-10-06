@@ -19,6 +19,7 @@ export function TopicInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder="Stoicism, game theory, the French Revolution…"
         autoComplete="off"
+        maxLength={120}
         className="topic-input w-full px-4 py-3.5 text-base text-espresso"
       />
       <span className="topic-underline" data-on={value.length > 0} aria-hidden />
