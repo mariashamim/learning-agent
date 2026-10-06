@@ -41,6 +41,9 @@ export function LessonView({
   const total = lesson.questions.length;
   const quizHeadingAt = CONCEPT_START + lesson.concepts.length * CONCEPT_STAGGER;
   const currentMod = course && moduleIndex !== null ? course.modules[moduleIndex] : null;
+  // After the quiz is saved, show the server's updated course (e.g. this module ticked off).
+  const pathCourse =
+    submission.state === "done" && submission.result.course ? submission.result.course : course;
 
   async function submit(all: typeof answers) {
     if (lessonId === null) return;
@@ -64,9 +67,9 @@ export function LessonView({
 
   return (
     <article id="lesson" className="mt-16 scroll-mt-24">
-      {course && (
+      {pathCourse && (
         <Reveal y={10} duration={DURATION} className="mb-8">
-          <CoursePath course={course} activeIndex={moduleIndex} onOpenModule={onOpenModule} />
+          <CoursePath course={pathCourse} activeIndex={moduleIndex} onOpenModule={onOpenModule} />
         </Reveal>
       )}
 

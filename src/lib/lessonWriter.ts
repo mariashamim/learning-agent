@@ -4,7 +4,7 @@
 // what to write and why, but cannot skip these checks.
 
 import { z } from "zod";
-import { callStructured } from "./model";
+import { callStructured, type Deadline } from "./model";
 
 export const LessonSchema = z.object({
   title: z.string(),
@@ -150,7 +150,7 @@ async function requestValidLesson(request: () => Promise<unknown>): Promise<Less
   );
 }
 
-function generateLesson(brief: LessonBrief): Promise<Lesson> {
+function generateLesson(brief: LessonBrief, deadline: Deadline): Promise<Lesson> {
   return requestValidLesson(() =>
     callStructured(
       `You are an expert instructional designer writing one module of a course.
@@ -159,24 +159,31 @@ without repeating them, and don't teach later modules' material.
 
 ${LESSON_REQUIREMENTS}`,
       `${describeBrief(brief)}\n\nWrite this module's lesson.`,
-      lessonJsonSchema
+      lessonJsonSchema,
+      deadline
     )
   );
 }
 
-async function evaluateLesson(brief: LessonBrief, lesson: Lesson): Promise<Evaluation> {
+async function evaluateLesson(brief: LessonBrief, lesson: Lesson, deadline: Deadline): Promise<Evaluation> {
   const result = await callStructured(
     `You are a strict educational quality evaluator. Evaluate the lesson on a 0-10 scale.
 Use the FULL range: 3 = poor, 5 = mediocre, 7 = good, 8-9 = excellent, 10 = perfect.
 Evaluate for: accuracy, clarity, fit to the module goal, difficulty, examples,
 active learning, and time fit (5-10 min). Be critical, but score honestly. Return only JSON.`,
     `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}`,
-    evaluationJsonSchema
+    evaluationJsonSchema,
+    deadline
   );
   return EvaluationSchema.parse(result);
 }
 
-function reviseLesson(brief: LessonBrief, lesson: Lesson, evaluation: Evaluation): Promise<Lesson> {
+function reviseLesson(
+  brief: LessonBrief,
+  lesson: Lesson,
+  evaluation: Evaluation,
+  deadline: Deadline
+): Promise<Lesson> {
   return requestValidLesson(() =>
     callStructured(
       `You are an expert instructional designer. Revise the lesson to fix the evaluator's feedback.
@@ -187,7 +194,8 @@ ${LESSON_REQUIREMENTS}`,
         null,
         2
       )}`,
-      lessonJsonSchema
+      lessonJsonSchema,
+      deadline
     )
   );
 }
@@ -202,21 +210,23 @@ const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)
 /**
  * Writes a lesson for `brief`. Only evaluated versions can be returned; a
  * revision that fails or can't be evaluated is discarded. No revision starts
- * after `reviseDeadline` (epoch ms), so the request fits its time limit.
+ * after `reviseDeadline`, and no model call runs past `deadline` (epoch ms).
  */
 export async function writeLesson(
   brief: LessonBrief,
-  { reviseDeadline, trace }: { reviseDeadline: number; trace: TraceEntry[] }
+  { reviseDeadline, deadline, trace }: { reviseDeadline: number; deadline: Deadline; trace: TraceEntry[] }
 ): Promise<{ lesson: Lesson; score: number; passed: boolean }> {
-  let candidate = await generateLesson(brief);
-  trace.push({ step: "lesson.generate", module: brief.moduleIndex + 1 });
+  let t = Date.now();
+  let candidate = await generateLesson(brief, deadline);
+  trace.push({ step: "lesson.generate", module: brief.moduleIndex + 1, ms: Date.now() - t });
 
   let best: { lesson: Lesson; score: number } | null = null;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     let evaluation: Evaluation;
+    t = Date.now();
     try {
-      evaluation = await evaluateLesson(brief, candidate);
+      evaluation = await evaluateLesson(brief, candidate, deadline);
     } catch (e) {
       // Nothing evaluated yet means nothing we're allowed to show.
       if (!best) throw e;
@@ -228,6 +238,7 @@ export async function writeLesson(
       step: "lesson.evaluate",
       iteration,
       score: evaluation.score,
+      ms: Date.now() - t,
       problems: evaluation.problems,
     });
     if (!best || evaluation.score > best.score) {
@@ -240,9 +251,10 @@ export async function writeLesson(
       break;
     }
 
+    t = Date.now();
     try {
-      candidate = await reviseLesson(brief, candidate, evaluation);
-      trace.push({ step: "lesson.revise", iteration });
+      candidate = await reviseLesson(brief, candidate, evaluation, deadline);
+      trace.push({ step: "lesson.revise", iteration, ms: Date.now() - t });
     } catch (e) {
       trace.push({ step: "lesson.revise_failed", iteration, error: errorMessage(e) });
       break;

@@ -23,9 +23,11 @@ export type { TraceEntry };
 const MAX_AGENT_STEPS = 6;
 // The lesson writer won't start a revision after this point in the run...
 const REVISE_DEADLINE_MS = 120_000;
-// ...and the agent loop won't start a new turn after this one. The route
-// allows 300s; this leaves room for the turn in flight and the save.
+// ...and the agent loop won't start a new turn after this one.
 const RUN_BUDGET_MS = 200_000;
+// Hard stop for every model call in the run (incl. retries). The route allows
+// 300s; the rest is headroom for database writes.
+const HARD_DEADLINE_MS = 280_000;
 
 const MIN_MODULES = 3;
 const MAX_MODULES = 6;
@@ -133,7 +135,7 @@ How to work:
 1. If the learner has no course for this topic, call create_course with ${MIN_MODULES}-${MAX_MODULES} modules that build on each other, starting from beginner level. Use their history: don't re-teach basics they covered in related topics.
 2. If the course state shows wrong quiz answers, call get_quiz_mistakes and use what you learn in the module's focus (for example, open with a short recap of the misunderstood idea).
 3. Call write_module exactly once. Give a concrete focus for the lesson writer.
-4. Then reply, without tool calls, with a short note to the learner: 1-2 warm sentences in second person on what this module covers and why it's next.
+4. Then reply, without tool calls, with a short note to the learner: 1-2 warm sentences in second person on what this module covers and why it's next. Plain text only, no markdown, under 60 words.
 
 Rules: one module per run; only the current module can be written; never claim progress the learner hasn't made.`;
 
@@ -213,7 +215,11 @@ async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
           previousModules: course.modules.slice(0, moduleIndex).map((m) => m.title),
           focus: args.data.focus,
         },
-        { reviseDeadline: state.startedAt + REVISE_DEADLINE_MS, trace: state.trace }
+        {
+          reviseDeadline: state.startedAt + REVISE_DEADLINE_MS,
+          deadline: state.startedAt + HARD_DEADLINE_MS,
+          trace: state.trace,
+        }
       );
 
       const lessonId = await db.saveLesson(state.learnerId, course.topic, lesson, score, {
@@ -268,6 +274,15 @@ Modules:
 ${lines.join("\n")}`;
 }
 
+/** The note is shown as plain text: strip markdown the model adds anyway. */
+function cleanNote(text: string | null) {
+  const note = (text ?? "")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/^#+\s*/gm, "")
+    .trim();
+  return note ? note.slice(0, 400) : null;
+}
+
 // ---------- The run ----------
 
 export async function runTutor(topic: string, learnerId: string): Promise<TutorResult> {
@@ -280,7 +295,22 @@ export async function runTutor(topic: string, learnerId: string): Promise<TutorR
     startedAt: Date.now(),
     trace: [],
   };
-  const { trace } = state;
+  try {
+    return await run(state);
+  } catch (e) {
+    // The trace never reaches the browser on failure, so keep it in the logs:
+    // it shows which turn, tool or lesson step broke and how long each took.
+    console.error("Tutor run failed", {
+      topic: state.topic,
+      elapsedMs: Date.now() - state.startedAt,
+      trace: state.trace,
+    });
+    throw e;
+  }
+}
+
+async function run(state: RunState): Promise<TutorResult> {
+  const { trace, learnerId } = state;
 
   state.course = await db.getCourse(learnerId, state.key);
   trace.push({
@@ -328,8 +358,15 @@ export async function runTutor(topic: string, learnerId: string): Promise<TutorR
       break;
     }
 
-    const reply = await callWithTools(messages, TOOLS);
+    const turnStarted = Date.now();
+    const reply = await callWithTools(messages, TOOLS, state.startedAt + HARD_DEADLINE_MS);
     messages.push(reply);
+    trace.push({
+      step: "agent.turn",
+      turn: step,
+      ms: Date.now() - turnStarted,
+      toolCalls: reply.tool_calls?.map((c) => c.function.name) ?? [],
+    });
 
     if (reply.tool_calls?.length) {
       for (const call of reply.tool_calls) {
@@ -355,7 +392,7 @@ export async function runTutor(topic: string, learnerId: string): Promise<TutorR
 
     // A reply without tool calls means the agent thinks it's done.
     if (state.written) {
-      tutorNote = reply.content?.trim() || null;
+      tutorNote = cleanNote(reply.content);
       trace.push({ step: "agent.finish", turn: step });
       break;
     }

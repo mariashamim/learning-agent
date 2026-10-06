@@ -4,8 +4,14 @@
 
 const MODEL = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4.1-flash";
 
-// A single model call may not hang the request: abort after this long.
+// A single model call may not hang the request: abort after this long, or
+// sooner if the caller's deadline is closer.
 const MODEL_TIMEOUT_MS = 60_000;
+// Don't start (or retry) a call with less time than this left.
+const MIN_CALL_MS = 5_000;
+
+/** Epoch ms by which the whole run must finish. */
+export type Deadline = number;
 
 export type ToolCall = {
   id: string;
@@ -25,13 +31,43 @@ export type ToolDefinition = {
 
 type AssistantMessage = Extract<ChatMessage, { role: "assistant" }>;
 
-async function chat(body: Record<string, unknown>): Promise<AssistantMessage> {
+// Providers occasionally stall or return 429/5xx. Retry those once; anything
+// else (bad request, auth) fails immediately.
+const MAX_ATTEMPTS = 2;
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
+class ModelHttpError extends Error {
+  constructor(readonly status: number, body: string) {
+    super(`OpenRouter ${status}: ${body}`);
+  }
+}
+
+function isTransient(e: unknown) {
+  if (e instanceof ModelHttpError) return RETRYABLE_STATUS.has(e.status);
+  // fetch throws TimeoutError on our abort and TypeError on network failure.
+  return e instanceof Error && (e.name === "TimeoutError" || e.name === "TypeError");
+}
+
+async function chat(body: Record<string, unknown>, deadline: Deadline): Promise<AssistantMessage> {
+  for (let attempt = 1; ; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_CALL_MS) throw new Error("Out of time for another model call");
+    try {
+      return await chatOnce(body, Math.min(MODEL_TIMEOUT_MS, remaining));
+    } catch (e) {
+      if (attempt >= MAX_ATTEMPTS || !isTransient(e)) throw e;
+      console.warn(`Model call failed (${e instanceof Error ? e.message : e}); retrying`);
+    }
+  }
+}
+
+async function chatOnce(body: Record<string, unknown>, timeoutMs: number): Promise<AssistantMessage> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
@@ -40,8 +76,7 @@ async function chat(body: Record<string, unknown>): Promise<AssistantMessage> {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenRouter ${response.status}: ${text}`);
+    throw new ModelHttpError(response.status, await response.text());
   }
 
   const data = await response.json();
@@ -54,7 +89,8 @@ async function chat(body: Record<string, unknown>): Promise<AssistantMessage> {
 export async function callStructured(
   system: string,
   user: string,
-  schema: Record<string, unknown>
+  schema: Record<string, unknown>,
+  deadline: Deadline
 ): Promise<unknown> {
   const message = await chat({
     messages: [
@@ -65,7 +101,7 @@ export async function callStructured(
       type: "json_schema",
       json_schema: { name: "response", strict: true, schema },
     },
-  });
+  }, deadline);
   if (!message.content) throw new Error("Model returned no content");
   return JSON.parse(message.content);
 }
@@ -73,7 +109,8 @@ export async function callStructured(
 /** One agent turn: the model either answers in text or asks for tool calls. */
 export async function callWithTools(
   messages: ChatMessage[],
-  tools: ToolDefinition[]
+  tools: ToolDefinition[],
+  deadline: Deadline
 ): Promise<AssistantMessage> {
-  return chat({ messages, tools, tool_choice: "auto" });
+  return chat({ messages, tools, tool_choice: "auto" }, deadline);
 }
