@@ -129,6 +129,28 @@ path was taken, every agent turn and tool call (and whether it failed),
 evaluator scores, revisions, saves. When something goes wrong, the trace says
 where.
 
+## Making it fast: measure, then change one thing at a time
+
+A new course took about 80 seconds. The per-step timings in the trace showed
+the agent's own turns were cheap (1-5s); nearly all the time was the two
+lesson-writer calls. Measurements on DeepSeek V4.1 Flash via OpenRouter:
+
+| Change | Before | After | Quality check |
+| --- | --- | --- | --- |
+| Route to the fastest provider (`provider.sort: "throughput"`) | evaluate 8-26s, generate 12-58s | evaluate ~4s, generate 9-12s | Same model; judge scores unchanged |
+| Evaluator at `reasoning.effort: "low"` | 726 of 897 output tokens were hidden reasoning | | Scores matched the default effort |
+| Writer at `reasoning.effort: "medium"` | ~20s typical | ~10s typical | 4/4 valid quizzes, avg score 7.56 vs 7.13 |
+| Writer with reasoning *off* | | fastest | **Rejected**: lessons scored lower (6-7.5 vs 7-8), which would cause more revisions |
+| Write the next module in the background after a quiz | 25-30s wait per module | ~0.1s when ready | Starts *after* grading, so the agent still sees the mistakes |
+
+Result: a new course's first module in roughly 25-35s (including a revision
+when needed), and later modules usually ready before the learner clicks.
+
+The lesson: the slow part wasn't the agent loop, it was hidden reasoning and
+provider choice. And "faster" options were checked against the evaluator
+before being adopted, because a faster writer that triggers more revisions
+isn't faster.
+
 ## Failures we hit building this, and the harness fix for each
 
 These all happened during development. Each one is a harness problem, not a

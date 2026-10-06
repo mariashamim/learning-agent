@@ -6,7 +6,7 @@ import { HarnessTrace } from "./HarnessTrace";
 import { QuizQuestion } from "./QuizQuestion";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
-import type { Answer, Course, QuizResult, View } from "./types";
+import type { Answer, Course, PrefetchState, QuizResult, View } from "./types";
 
 // Entrance timeline (ms): header → concepts (120ms apart) → quiz heading →
 // quiz cards (80ms apart). About one second for a typical lesson.
@@ -25,11 +25,14 @@ type Submission =
 export function LessonView({
   view,
   onSubmitQuiz,
+  nextModuleState,
   onContinue,
   onOpenModule,
 }: {
   view: Extract<View, { kind: "lesson" }>;
   onSubmitQuiz: (lessonId: number, answers: Answer[]) => Promise<QuizResult>;
+  /** Whether the next module is being written in the background. */
+  nextModuleState?: PrefetchState;
   onContinue: (topic: string) => void;
   onOpenModule: (course: Course, moduleIndex: number) => void;
 }) {
@@ -195,6 +198,7 @@ export function LessonView({
               submission={submission}
               moduleIndex={moduleIndex}
               course={course}
+              nextModuleState={nextModuleState}
               onRetry={() => submit(answers)}
               onContinue={onContinue}
             />
@@ -213,6 +217,7 @@ function QuizOutcome({
   submission,
   moduleIndex,
   course,
+  nextModuleState,
   onRetry,
   onContinue,
 }: {
@@ -221,6 +226,7 @@ function QuizOutcome({
   submission: Submission;
   moduleIndex: number | null;
   course: Course | null;
+  nextModuleState?: PrefetchState;
   onRetry: () => void;
   onContinue: (topic: string) => void;
 }) {
@@ -262,6 +268,19 @@ function QuizOutcome({
                 {nextIndex === moduleIndex
                   ? "This module is still open."
                   : `Up next: Module ${nextIndex + 1}, ${next.title}.`}
+                {nextModuleState === "pending" && (
+                  <span className="mt-1 flex items-center gap-2 text-xs text-peach/65">
+                    <span className="inline-flex gap-1" aria-hidden>
+                      <span className="h-1 w-1 rounded-full bg-peach animate-dot-1" />
+                      <span className="h-1 w-1 rounded-full bg-peach animate-dot-2" />
+                      <span className="h-1 w-1 rounded-full bg-peach animate-dot-3" />
+                    </span>
+                    Your tutor is writing it now
+                  </span>
+                )}
+                {nextModuleState === "ready" && (
+                  <span className="mt-1 block text-xs text-peach/65">Ready when you are.</span>
+                )}
               </p>
               <button type="button" onClick={() => onContinue(latest.topic)} className="btn-on-dark">
                 {next.lesson ? `Go to Module ${nextIndex + 1} →` : `Start Module ${nextIndex + 1} →`}

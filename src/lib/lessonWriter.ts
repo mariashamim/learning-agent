@@ -134,6 +134,13 @@ ${before}
 Tutor's instructions for this module: ${b.focus || "none"}`;
 }
 
+// Reasoning effort, measured on DeepSeek V4.1 Flash (see HARNESS.md):
+// - writing at "medium": ~10s vs ~20s at the default, same quality and
+//   quiz validity; with reasoning off, lessons scored lower.
+// - scoring at "low": same scores as the default, a fraction of the time.
+const WRITER_OPTIONS = { reasoningEffort: "medium" } as const;
+const EVALUATOR_OPTIONS = { reasoningEffort: "low" } as const;
+
 // The model occasionally ignores the quiz rules. Retry once on a validation
 // failure (bounded), then give up with a clear error.
 const MAX_LESSON_ATTEMPTS = 2;
@@ -160,7 +167,8 @@ without repeating them, and don't teach later modules' material.
 ${LESSON_REQUIREMENTS}`,
       `${describeBrief(brief)}\n\nWrite this module's lesson.`,
       lessonJsonSchema,
-      deadline
+      deadline,
+      WRITER_OPTIONS
     )
   );
 }
@@ -173,7 +181,8 @@ Evaluate for: accuracy, clarity, fit to the module goal, difficulty, examples,
 active learning, and time fit (5-10 min). Be critical, but score honestly. Return only JSON.`,
     `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}`,
     evaluationJsonSchema,
-    deadline
+    deadline,
+    EVALUATOR_OPTIONS
   );
   return EvaluationSchema.parse(result);
 }
@@ -195,7 +204,8 @@ ${LESSON_REQUIREMENTS}`,
         2
       )}`,
       lessonJsonSchema,
-      deadline
+      deadline,
+      WRITER_OPTIONS
     )
   );
 }

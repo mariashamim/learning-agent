@@ -6,6 +6,14 @@ import { env, requireEnv } from "./env";
 
 const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";
 
+// OpenRouter serves the same model from several providers whose speed varies
+// a lot (measured: 4s vs 8-26s for the same evaluator call). Prefer the
+// fastest; it falls back to others if that one is down.
+const PROVIDER_ROUTING = { sort: "throughput" };
+
+/** How hard a reasoning model "thinks" before answering. Omit for the model default. */
+export type ReasoningEffort = "low" | "medium" | "high";
+
 // A single model call may not hang the request: abort after this long, or
 // sooner if the caller's deadline is closer.
 const MODEL_TIMEOUT_MS = 60_000;
@@ -73,7 +81,11 @@ async function chatOnce(body: Record<string, unknown>, timeoutMs: number): Promi
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ model: env("OPENROUTER_MODEL") ?? DEFAULT_MODEL, ...body }),
+    body: JSON.stringify({
+      model: env("OPENROUTER_MODEL") ?? DEFAULT_MODEL,
+      provider: PROVIDER_ROUTING,
+      ...body,
+    }),
   });
 
   if (!response.ok) {
@@ -91,7 +103,8 @@ export async function callStructured(
   system: string,
   user: string,
   schema: Record<string, unknown>,
-  deadline: Deadline
+  deadline: Deadline,
+  { reasoningEffort }: { reasoningEffort?: ReasoningEffort } = {}
 ): Promise<unknown> {
   const message = await chat({
     messages: [
@@ -102,6 +115,7 @@ export async function callStructured(
       type: "json_schema",
       json_schema: { name: "response", strict: true, schema },
     },
+    ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
   }, deadline);
   if (!message.content) throw new Error("Model returned no content");
   return JSON.parse(message.content);

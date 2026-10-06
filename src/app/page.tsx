@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
 import { CourseList } from "@/components/CourseList";
 import { CourseOverview } from "@/components/CourseOverview";
 import { CustomCursor } from "@/components/CustomCursor";
@@ -11,7 +11,16 @@ import { MagneticButton } from "@/components/MagneticButton";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
 import { TopicInput } from "@/components/TopicInput";
-import type { Answer, Course, LessonRow, QuizResult, View } from "@/components/types";
+import type {
+  Answer,
+  Course,
+  Lesson,
+  LessonRow,
+  PrefetchState,
+  QuizResult,
+  TraceStep,
+  View,
+} from "@/components/types";
 
 const SUGGESTIONS = ["Philosophy", "Game Theory", "Stoicism", "Photosynthesis"];
 
@@ -58,6 +67,23 @@ function getOrCreateLearnerId(): string {
 }
 const noSubscribe = () => () => {};
 
+// What /api/learn returns (see TutorResult in src/lib/harness.ts).
+type LearnResponse =
+  | {
+      kind: "lesson";
+      course: Course;
+      moduleIndex: number;
+      lessonId: number | null;
+      lesson: Lesson;
+      score: number | null;
+      passed: boolean;
+      saved: boolean;
+      resumed: boolean;
+      tutorNote: string | null;
+      trace: TraceStep[];
+    }
+  | { kind: "course_complete"; course: Course; trace: TraceStep[] };
+
 /** Reads an API response, turning non-JSON failures (e.g. a gateway timeout page) into readable errors. */
 async function readJson(response: Response) {
   try {
@@ -71,6 +97,9 @@ async function readJson(response: Response) {
   }
 }
 
+/** Same normalization as the server's topicKey, so prefetches match requests. */
+const topicKey = (topic: string) => topic.trim().replace(/\s+/g, " ").toLowerCase();
+
 export default function Home() {
   const [topic, setTopic] = useState("");
   // localStorage-backed; empty during SSR, filled in on hydration.
@@ -80,6 +109,10 @@ export default function Home() {
   const [library, setLibrary] = useState<LessonRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Next modules being written in the background, keyed by topic. A click on
+  // "Start Module N" awaits the same request instead of starting a second one.
+  const prefetches = useRef(new Map<string, Promise<LearnResponse>>());
+  const [prefetchState, setPrefetchState] = useState<Record<string, PrefetchState>>({});
 
   useEffect(() => {
     if (learnerId) loadLibrary(learnerId);
@@ -107,30 +140,67 @@ export default function Home() {
     );
   }
 
+  async function requestLearn(requested: string): Promise<LearnResponse> {
+    const response = await fetch("/api/learn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: requested, learnerId }),
+    });
+    const data = await readJson(response);
+    if (!response.ok) {
+      const extra = data.details ?? data.hint;
+      throw new Error(extra ? `${data.error} ${extra}` : data.error);
+    }
+    return data;
+  }
+
+  function setPrefetch(key: string, state: PrefetchState | null) {
+    setPrefetchState((s) => {
+      const next = { ...s };
+      if (state) next[key] = state;
+      else delete next[key];
+      return next;
+    });
+  }
+
+  /** Starts writing a course's next module in the background. */
+  function prefetchNext(courseTopic: string) {
+    const key = topicKey(courseTopic);
+    if (prefetches.current.has(key)) return;
+    const request = requestLearn(courseTopic);
+    prefetches.current.set(key, request);
+    setPrefetch(key, "pending");
+    request.then(
+      () => setPrefetch(key, "ready"),
+      () => {
+        // Forget a failed prefetch; clicking "Start" will simply try again.
+        prefetches.current.delete(key);
+        setPrefetch(key, null);
+      }
+    );
+  }
+
   /** Starts or continues a course: the tutor resumes, plans, or writes the next module. */
   async function learn(requested: string) {
     if (!requested.trim() || loading) return;
     setLoading(true);
     setError("");
     setView(null);
+    const key = topicKey(requested);
+    const prefetched = prefetches.current.get(key);
+    prefetches.current.delete(key);
+    setPrefetch(key, null);
     try {
-      const response = await fetch("/api/learn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: requested, learnerId }),
-      });
-      const data = await readJson(response);
-      if (!response.ok) {
-        const extra = data.details ?? data.hint;
-        throw new Error(extra ? `${data.error} ${extra}` : data.error);
-      }
-      const key = Date.now();
+      const data = prefetched
+        ? await prefetched.catch(() => requestLearn(requested))
+        : await requestLearn(requested);
+      const viewKey = Date.now();
       if (data.kind === "course_complete") {
-        show({ kind: "course_complete", key, course: data.course, trace: data.trace });
+        show({ kind: "course_complete", key: viewKey, course: data.course, trace: data.trace });
       } else {
         show({
           kind: "lesson",
-          key,
+          key: viewKey,
           lesson: data.lesson,
           lessonId: data.lessonId,
           score: typeof data.score === "number" ? data.score : null,
@@ -158,8 +228,13 @@ export default function Home() {
     });
     const data = await readJson(response);
     if (!response.ok) throw new Error(data.error ?? "Couldn't save your quiz.");
+    const result = data as QuizResult;
+    // If finishing this quiz unlocked a module that isn't written yet, start
+    // writing it now; the tutor already sees these answers.
+    const next = result.course?.status === "active" ? result.course.modules[result.course.currentModule] : null;
+    if (result.course && next && !next.lesson) prefetchNext(result.course.topic);
     loadLibrary(learnerId);
-    return data as QuizResult;
+    return result;
   }
 
   function openModule(course: Course, moduleIndex: number) {
@@ -293,6 +368,7 @@ export default function Home() {
               key={view.key}
               view={view}
               onSubmitQuiz={submitQuiz}
+              nextModuleState={view.course ? prefetchState[topicKey(view.course.topic)] : undefined}
               onContinue={learn}
               onOpenModule={openModule}
             />

@@ -48,6 +48,9 @@ export type LessonStatus = { passed?: boolean; saved?: boolean; resumed?: boolea
 
 export type Answer = { questionIndex: number; chosen: string };
 
+/** A next module being written in the background, or done and waiting. */
+export type PrefetchState = "pending" | "ready";
+
 /** Server's verdict on a finished quiz. */
 export type QuizResult = { correct: number; total: number; firstCompletion: boolean; course: Course | null };
 
