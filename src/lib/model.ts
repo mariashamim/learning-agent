@@ -2,7 +2,9 @@
 //  - callStructured: one prompt in, JSON matching a schema out (lesson writer).
 //  - callWithTools:  a chat turn that may request tool calls (tutor agent).
 
-const MODEL = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4.1-flash";
+import { env, requireEnv } from "./env";
+
+const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";
 
 // A single model call may not hang the request: abort after this long, or
 // sooner if the caller's deadline is closer.
@@ -36,7 +38,7 @@ type AssistantMessage = Extract<ChatMessage, { role: "assistant" }>;
 const MAX_ATTEMPTS = 2;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
-class ModelHttpError extends Error {
+export class ModelHttpError extends Error {
   constructor(readonly status: number, body: string) {
     super(`OpenRouter ${status}: ${body}`);
   }
@@ -62,8 +64,7 @@ async function chat(body: Record<string, unknown>, deadline: Deadline): Promise<
 }
 
 async function chatOnce(body: Record<string, unknown>, timeoutMs: number): Promise<AssistantMessage> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+  const apiKey = requireEnv("OPENROUTER_API_KEY");
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -72,7 +73,7 @@ async function chatOnce(body: Record<string, unknown>, timeoutMs: number): Promi
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ model: MODEL, ...body }),
+    body: JSON.stringify({ model: env("OPENROUTER_MODEL") ?? DEFAULT_MODEL, ...body }),
   });
 
   if (!response.ok) {

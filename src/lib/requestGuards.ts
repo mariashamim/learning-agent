@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { ConfigError } from "./env";
+import { ModelHttpError } from "./model";
 
 // ---------- Input validation ----------
 
@@ -59,7 +61,40 @@ export function tooManyRequests(retryAfterSec: number) {
   );
 }
 
-/** Logs the real error server-side; only shows details outside production. */
+/**
+ * A short, safe description of what failed, shown even in production. It names
+ * the failing part (config, AI provider, database) without leaking internals,
+ * so a deployment problem can be diagnosed from the page itself.
+ */
+export function errorHint(error: unknown): string | undefined {
+  if (error instanceof ConfigError) return `Server setup is incomplete: ${error.message}.`;
+  if (error instanceof ModelHttpError) {
+    if (error.status === 401 || error.status === 403)
+      return "The AI provider rejected the API key (check OPENROUTER_API_KEY).";
+    if (error.status === 402) return "The AI provider account has run out of credits.";
+    if (error.status === 400 || error.status === 404)
+      return "The AI provider refused the request (check OPENROUTER_MODEL).";
+    return "The AI provider is busy or down. Try again in a minute.";
+  }
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  if (/TimeoutError|Out of time/.test(message)) return "The AI model took too long. Try again.";
+  if (/valid lesson/.test(message)) return "The AI model returned an unusable lesson twice. Try again.";
+  if (/without writing a module/.test(message)) return "The tutor didn't finish the module. Try again.";
+  if (/^Error: (get|list|create|update|insert|mark)\w*:/.test(message)) {
+    if (/schema cache|does not exist|column/i.test(message))
+      return "A database table or column is missing (run the Supabase migration).";
+    if (/fetch failed|ENOTFOUND|Invalid URL|getaddrinfo/i.test(message))
+      return "Couldn't reach the database (check SUPABASE_URL).";
+    if (/JWT|api ?key|401|unauthori[sz]ed/i.test(message))
+      return "The database rejected the key (check SUPABASE_ANON_KEY).";
+    if (/row-level security|permission denied/i.test(message))
+      return "A database security policy blocked the request (check RLS policies).";
+    return "The database request failed.";
+  }
+  return undefined;
+}
+
+/** Logs the real error server-side; returns a safe hint, plus full details outside production. */
 export function serverError(error: unknown, publicMessage: string) {
   console.error(error);
   const details =
@@ -68,5 +103,8 @@ export function serverError(error: unknown, publicMessage: string) {
       : error instanceof Error
         ? error.message
         : String(error);
-  return NextResponse.json({ error: publicMessage, details }, { status: 500 });
+  return NextResponse.json(
+    { error: publicMessage, hint: errorHint(error), details },
+    { status: 500 }
+  );
 }

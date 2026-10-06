@@ -121,7 +121,8 @@ export default function Home() {
       });
       const data = await readJson(response);
       if (!response.ok) {
-        throw new Error(data.details ? `${data.error} (${data.details})` : data.error);
+        const extra = data.details ?? data.hint;
+        throw new Error(extra ? `${data.error} ${extra}` : data.error);
       }
       const key = Date.now();
       if (data.kind === "course_complete") {

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { requireEnv } from "./env";
 import type { Lesson } from "./lessonWriter";
 
 // Created on first use, not at import: `next build` loads route modules, and
@@ -7,12 +8,7 @@ let client: SupabaseClient | null = null;
 
 function supabase(): SupabaseClient {
   if (client) return client;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error("SUPABASE_URL and SUPABASE_ANON_KEY must be set");
-  }
-  client = createClient(url, key);
+  client = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_ANON_KEY"));
   return client;
 }
 
