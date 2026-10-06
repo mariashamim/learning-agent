@@ -26,7 +26,15 @@ export type LessonRow = {
 export type CourseModule = {
   title: string;
   goal: string;
-  lesson: { id: number; score: number | null; completed: boolean; data: Lesson } | null;
+  lesson: {
+    id: number;
+    score: number | null;
+    completed: boolean;
+    createdAt: string;
+    completedAt: string | null;
+    quiz: { correct: number; total: number } | null;
+    data: Lesson;
+  } | null;
 };
 
 export type Course = {

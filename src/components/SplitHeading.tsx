@@ -23,7 +23,7 @@ export function SplitHeading({
           <span
             aria-hidden
             className={`inline-block whitespace-nowrap ${
-              italicWords.includes(word) ? "font-light text-coffee italic" : ""
+              italicWords.includes(word) ? "text-coffee" : ""
             }`}
           >
             {Array.from(word).map((ch, ci) => (

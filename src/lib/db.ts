@@ -39,6 +39,8 @@ export type LessonRow = {
   created_at: string;
   completed_at: string | null;
   lesson_data: Lesson;
+  /** Present when loaded with a course: one entry per recorded quiz answer. */
+  attempts?: { correct: boolean }[];
 };
 
 export type CourseWithLessons = CourseRow & { lessons: LessonRow[] };
@@ -46,7 +48,7 @@ export type CourseWithLessons = CourseRow & { lessons: LessonRow[] };
 export type AttemptRow = { question_index: number; chosen: string; correct: boolean };
 
 const LESSON_COLUMNS = "id, course_id, module_index, topic, score, created_at, completed_at, lesson_data";
-const COURSE_WITH_LESSONS = `*, lessons(${LESSON_COLUMNS})`;
+const COURSE_WITH_LESSONS = `*, lessons(${LESSON_COLUMNS}, attempts(correct))`;
 
 // ---------- Health check ----------
 /** Reads one row's worth of the columns the app needs from each table. */

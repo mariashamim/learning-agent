@@ -4,12 +4,16 @@ import { useState, useEffect, useRef, useSyncExternalStore, type CSSProperties }
 import { CourseList } from "@/components/CourseList";
 import { CourseOverview } from "@/components/CourseOverview";
 import { CustomCursor } from "@/components/CustomCursor";
+import { LibraryCard, ProgressCard, StartCards, ThinkingCard, UpNextCard } from "@/components/Dashboard";
+import { ArrowUpRightIcon, SparkleIcon } from "@/components/Icons";
 import { LessonView } from "@/components/LessonView";
-import { Library } from "@/components/Library";
 import { LessonSkeleton, OrbitDots, StatusCycle, TopProgressBar } from "@/components/LoadingIndicator";
 import { MagneticButton } from "@/components/MagneticButton";
-import { SiteHeader } from "@/components/SiteHeader";
+import { Mascot } from "@/components/Mascot";
+import { Sidebar } from "@/components/Sidebar";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
+import { greeting, learningStats } from "@/components/stats";
+import { TopBar } from "@/components/TopBar";
 import { TopicInput } from "@/components/TopicInput";
 import type {
   Answer,
@@ -22,11 +26,11 @@ import type {
   View,
 } from "@/components/types";
 
-const SUGGESTIONS = ["Philosophy", "Game Theory", "Stoicism", "Photosynthesis"];
+const SUGGESTIONS = ["The French Revolution", "Machine learning", "Jazz theory"];
 
 // Page entrance timeline (ms). The heading types in character by character,
 // then subtitle → input row → library follow 100ms apart. ~1.4s in total.
-const HEADING = "What do you want to learn?";
+const HEADING = "What do you want to learn today?";
 const CHAR_START = 50;
 const CHAR_STAGGER = 25;
 const CHAR_DURATION = 300;
@@ -104,6 +108,10 @@ export default function Home() {
   const [topic, setTopic] = useState("");
   // localStorage-backed; empty during SSR, filled in on hydration.
   const learnerId = useSyncExternalStore(noSubscribe, getOrCreateLearnerId, () => "");
+  // Client-only (the server doesn't know the learner's local hour).
+  const hello = useSyncExternalStore(noSubscribe, () => greeting(new Date().getHours()), () => "Hello");
+  const [query, setQuery] = useState("");
+  const [activeSection, setActiveSection] = useState("top");
   const [view, setView] = useState<View | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [library, setLibrary] = useState<LessonRow[]>([]);
@@ -117,6 +125,13 @@ export default function Home() {
   useEffect(() => {
     if (learnerId) loadLibrary(learnerId);
   }, [learnerId]);
+
+  // Highlight the sidebar link for the section last navigated to.
+  useEffect(() => {
+    const onHash = () => setActiveSection(window.location.hash.slice(1) || "top");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   async function loadLibrary(id: string) {
     const q = `learnerId=${encodeURIComponent(id)}`;
@@ -271,125 +286,177 @@ export default function Home() {
     });
   }
 
+  const stats = learningStats(courses);
+  const q = query.trim().toLowerCase();
+  const visibleCourses = q
+    ? courses.filter((c) => [c.title, c.topic, ...c.modules.map((m) => m.title)].some((t) => t.toLowerCase().includes(q)))
+    : courses;
+  const visibleLibrary = q
+    ? library.filter((l) => [l.topic, l.lesson_data?.title ?? ""].some((t) => t.toLowerCase().includes(q)))
+    : library;
+  const pendingKey = Object.entries(prefetchState).find(([, state]) => state === "pending")?.[0];
+  const pendingCourse = pendingKey ? courses.find((c) => topicKey(c.topic) === pendingKey) : undefined;
+
   return (
     <>
       <CustomCursor />
       {loading && <TopProgressBar />}
 
-      <main className="relative z-[1] min-h-screen text-espresso">
-        <SiteHeader learnerId={learnerId} courseCount={courses.length} />
+      <div className="relative z-[1] flex min-h-screen text-espresso">
+        <Sidebar courses={courses} learnerId={learnerId} activeSection={activeSection} onOpenModule={openModule} />
 
-        <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6">
-          {/* Hero */}
-          <section className="pt-12 sm:pt-20">
-            <p className="intro text-xs font-medium uppercase tracking-[0.2em] text-taupe" style={intro(0)}>
-              Short courses, ten minutes a module
-            </p>
-            <SplitHeading
-              text={HEADING}
-              italicWords={["learn?"]}
-              className="font-display mt-4 text-4xl leading-[1.08] font-medium tracking-tight text-espresso sm:text-6xl"
-            />
-            <p
-              className="intro mt-5 max-w-xl text-[15px] leading-relaxed text-coffee sm:text-base"
-              style={intro(SUBTITLE_AT)}
-            >
-              Name any topic. Your tutor plans a short course, writes each module and checks it
-              before you see it, then picks up where you left off whenever you come back.
-            </p>
+        <div className="min-w-0 flex-1">
+          <TopBar
+            query={query}
+            onQuery={setQuery}
+            streak={stats.streak}
+            learnerId={learnerId}
+            courseCount={courses.length}
+          />
 
-            <div className="intro" style={intro(INPUT_AT)}>
-              {/* Orbiting dots sit above the input while the harness runs. */}
-              <div className="mt-6 flex h-6 items-center">{loading && <OrbitDots />}</div>
+          <div id="top" className="grid scroll-mt-24 gap-6 px-4 pb-20 sm:px-6 lg:px-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <main className="min-w-0 pt-8">
+              {/* Hero */}
+              <section className="grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_220px] lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div>
+                  <p className="intro text-[15px] font-semibold text-espresso/85" style={intro(0)}>
+                    {hello} <span aria-hidden>👋</span>
+                  </p>
+                  <SplitHeading
+                    text={HEADING}
+                    italicWords={["learn"]}
+                    className="font-display mt-3 text-[38px] leading-[1.08] font-extrabold tracking-tight text-espresso sm:text-5xl xl:text-[54px]"
+                  />
+                  <p
+                    className="intro mt-4 max-w-xl text-[15px] leading-relaxed text-taupe"
+                    style={intro(SUBTITLE_AT)}
+                  >
+                    I&rsquo;m your AI tutor. Name any topic and I&rsquo;ll plan a short course, write
+                    each 5&ndash;10 minute module and check it before you see it, then pick up where
+                    you left off whenever you come back.
+                  </p>
+                </div>
+                <div className="intro hidden md:block" style={intro(SUBTITLE_AT)}>
+                  <Mascot className="h-[200px] lg:h-[230px]" />
+                </div>
+              </section>
 
-              <form
-                className="mt-1 flex flex-col gap-2 sm:flex-row"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  learn(topic);
-                }}
-              >
-                <TopicInput value={topic} onChange={setTopic} />
-                <MagneticButton
-                  type="submit"
-                  disabled={loading || !topic.trim()}
-                  className="inline-flex items-center justify-center gap-2 rounded-[14px] px-7 py-3.5 font-medium"
+              {/* Ask card */}
+              <div className="intro" style={intro(INPUT_AT)}>
+                <form
+                  className="ask-card mt-6 rounded-3xl border border-beige/80 bg-paper p-3 sm:p-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    learn(topic);
+                  }}
                 >
-                  <span>{loading ? "Working…" : "Learn"}</span>
-                  {!loading && (
-                    <span aria-hidden className="btn-arrow">
-                      →
+                  <div className="flex items-center gap-1">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-peach/70 text-coffee">
+                      <SparkleIcon size={18} />
                     </span>
-                  )}
-                </MagneticButton>
-              </form>
-
-              {loading ? (
-                <StatusCycle />
-              ) : (
-                !view && (
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-taupe">Try</span>
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setTopic(s)}
-                        className="rounded-full border border-beige/80 bg-paper/60 px-3 py-1 text-xs text-coffee transition-colors duration-200 hover:border-taupe hover:bg-peach/50 hover:text-espresso"
-                      >
-                        {s}
-                      </button>
-                    ))}
+                    <TopicInput value={topic} onChange={setTopic} bare />
                   </div>
-                )
-              )}
-            </div>
-          </section>
-
-          {loading && <LessonSkeleton />}
-
-          {error && (
-            <div
-              role="alert"
-              className="animate-fade-in mt-8 flex gap-3 rounded-2xl border border-red-400/40 bg-red-50 p-4 text-sm text-red-800"
-            >
-              <span aria-hidden className="mt-px font-semibold">
-                !
-              </span>
-              <div>
-                <p className="font-semibold">The lesson couldn&rsquo;t be prepared.</p>
-                <p className="mt-1 text-espresso/80">{error}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 pl-1">
+                    {loading ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <OrbitDots />
+                        <div className="min-w-0 flex-1 [&>div]:mt-0">
+                          <StatusCycle />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        {SUGGESTIONS.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setTopic(s)}
+                            className="chip rounded-full border border-beige bg-background px-3 py-1.5 text-xs font-medium text-espresso/80 hover:border-coffee/40 hover:bg-peach/60 hover:text-coffee"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <MagneticButton
+                      type="submit"
+                      disabled={loading || !topic.trim()}
+                      aria-label={loading ? "Working" : "Learn"}
+                      className="ml-auto inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold"
+                    >
+                      <span>{loading ? "Working…" : "Learn"}</span>
+                      {!loading && <ArrowUpRightIcon size={16} strokeWidth={2.2} className="btn-arrow" />}
+                    </MagneticButton>
+                  </div>
+                </form>
               </div>
-            </div>
-          )}
 
-          {view?.kind === "lesson" && (
-            <LessonView
-              key={view.key}
-              view={view}
-              onSubmitQuiz={submitQuiz}
-              nextModuleState={view.course ? prefetchState[topicKey(view.course.topic)] : undefined}
-              onContinue={learn}
-              onOpenModule={openModule}
-            />
-          )}
-          {view?.kind === "course_complete" && (
-            <CourseOverview key={view.key} course={view.course} trace={view.trace} onOpenModule={openModule} />
-          )}
+              <div className="intro mt-6" style={intro(LIBRARY_AT)}>
+                <StartCards onStart={learn} disabled={loading} />
+              </div>
 
-          {courses.length > 0 && (
-            <CourseList courses={courses} onContinue={learn} disabled={loading} introDelay={libraryIntroDelay} />
-          )}
+              {loading && <LessonSkeleton />}
 
-          {library.length > 0 && (
-            <Library library={library} onOpen={openPastLesson} introDelay={libraryIntroDelay} />
-          )}
+              {error && (
+                <div
+                  role="alert"
+                  className="animate-fade-in mt-8 flex gap-3 rounded-2xl border border-red-400/40 bg-red-50 p-4 text-sm text-red-800"
+                >
+                  <span aria-hidden className="mt-px font-semibold">
+                    !
+                  </span>
+                  <div>
+                    <p className="font-semibold">The lesson couldn&rsquo;t be prepared.</p>
+                    <p className="mt-1 text-espresso/80">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              {view?.kind === "lesson" && (
+                <LessonView
+                  key={view.key}
+                  view={view}
+                  onSubmitQuiz={submitQuiz}
+                  nextModuleState={view.course ? prefetchState[topicKey(view.course.topic)] : undefined}
+                  onContinue={learn}
+                  onOpenModule={openModule}
+                />
+              )}
+              {view?.kind === "course_complete" && (
+                <CourseOverview key={view.key} course={view.course} trace={view.trace} onOpenModule={openModule} />
+              )}
+
+              {(courses.length > 0 || q) && (
+                <CourseList
+                  courses={visibleCourses}
+                  onContinue={learn}
+                  disabled={loading}
+                  introDelay={libraryIntroDelay}
+                  filtered={!!q}
+                />
+              )}
+            </main>
+
+            <aside className="space-y-5 pt-2 xl:sticky xl:top-[73px] xl:max-h-[calc(100vh-73px)] xl:self-start xl:overflow-y-auto xl:pt-8 xl:pb-6">
+              {loading ? (
+                <ThinkingCard mode="foreground" label="Your tutor is preparing your module." />
+              ) : pendingCourse ? (
+                <ThinkingCard
+                  mode="background"
+                  label={`Writing Module ${pendingCourse.currentModule + 1} of ${pendingCourse.title} in the background.`}
+                />
+              ) : null}
+              <UpNextCard courses={courses} doneToday={stats.doneToday} onContinue={learn} disabled={loading} />
+              <ProgressCard stats={stats} />
+              <LibraryCard lessons={visibleLibrary} onOpen={openPastLesson} />
+            </aside>
+          </div>
+
+          <footer className="border-t border-beige/60 px-8 py-6 text-center text-xs text-taupe">
+            Every module is scored by a second pass before it reaches you.
+          </footer>
         </div>
-
-        <footer className="border-t border-beige/60 py-8 text-center text-xs text-taupe">
-          Every module is scored by a second pass before it reaches you.
-        </footer>
-      </main>
+      </div>
     </>
   );
 }

@@ -1,14 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf5ef;
-  --foreground: #3a2a1e;
-  --peach: #ffdbbb;
-  --beige: #ccbeb1;
-  --taupe: #997e67;
-  --coffee: #664930;
-  --espresso: #3a2a1e;
-  --paper: #fffdf9;
+  /* Cool lavender palette. Token names are historical: "coffee" is the
+     primary violet, "peach" the soft accent tint, "espresso" the deep navy. */
+  --background: #f5f6fc;
+  --foreground: #1d2142;
+  --peach: #ebe7ff;
+  --beige: #e3e6f3;
+  --taupe: #767b9b;
+  --coffee: #6c5ce7;
+  --espresso: #1d2142;
+  --paper: #ffffff;
+  --blue: #4f8cff;
+  --violet: #8b5cf6;
+  --mint: #2bc4a0;
+  --amber: #f5a524;
+  --rose: #f0567a;
+  --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #6c5ce7 45%, #4f8cff 100%);
 
   --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -24,8 +32,13 @@
   --color-taupe: var(--taupe);
   --color-coffee: var(--coffee);
   --color-espresso: var(--espresso);
+  --color-blue: var(--blue);
+  --color-violet: var(--violet);
+  --color-mint: var(--mint);
+  --color-amber: var(--amber);
+  --color-rose: var(--rose);
 
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-serif: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -34,12 +47,13 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Static cream base with a faint warm wash; the cursor glow layers on top. */
+/* Soft lavender/blue blobs on a pale base; the cursor glow layers on top. */
 body {
   background-color: var(--background);
   background-image:
-    radial-gradient(circle at 20% 0%, rgba(255, 219, 187, 0.35), transparent 45%),
-    radial-gradient(circle at 100% 30%, rgba(204, 190, 177, 0.18), transparent 40%);
+    radial-gradient(ellipse 60% 50% at 15% 0%, rgba(167, 150, 255, 0.22), transparent 60%),
+    radial-gradient(ellipse 50% 45% at 85% 5%, rgba(120, 170, 255, 0.2), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(255, 170, 220, 0.12), transparent 60%);
   background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -54,7 +68,14 @@ body {
 
 .font-display {
   font-family: var(--font-serif);
-  font-variation-settings: "SOFT" 50, "opsz" 96;
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 :focus-visible {
@@ -89,7 +110,7 @@ body {
   border-radius: 50%;
   background: var(--peach);
   /* Hairline so a peach dot stays findable on cream. */
-  box-shadow: 0 0 0 1px rgba(102, 73, 48, 0.45);
+  box-shadow: 0 0 0 1px rgba(76, 61, 180, 0.45);
   opacity: 0;
   transition: opacity 200ms ease;
 }
@@ -106,7 +127,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 219, 187, 0.55);
+  background: rgba(167, 150, 255, 0.55);
   border: 1.5px solid var(--peach);
   box-shadow: 0 0 12px 3px var(--peach);
   filter: blur(1.5px);
@@ -139,7 +160,7 @@ html.cursor-visible .cursor-ring[data-pressed] .cursor-ring-inner {
   width: 1200px;
   height: 1200px;
   margin: -600px 0 0 -600px;
-  background: radial-gradient(circle closest-side, rgba(255, 219, 187, 0.12), rgba(255, 219, 187, 0));
+  background: radial-gradient(circle closest-side, rgba(167, 150, 255, 0.12), rgba(167, 150, 255, 0));
   opacity: 0;
   transition: opacity 600ms ease;
 }
@@ -157,13 +178,13 @@ html.cursor-visible .cursor-glow {
 
 /* ============ 3. Magnetic primary button ============ */
 .btn-primary {
-  background-color: var(--coffee);
-  color: var(--peach);
-  box-shadow: 0 1px 2px rgba(58, 42, 30, 0.12);
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(108, 92, 231, 0.55);
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #573d27;
-  box-shadow: 0 10px 24px -10px rgba(58, 42, 30, 0.55);
+  filter: brightness(1.06) saturate(1.1);
+  box-shadow: 0 12px 26px -10px rgba(108, 92, 231, 0.7);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
@@ -214,12 +235,12 @@ html.cursor-visible .cursor-glow {
     box-shadow 200ms ease;
 }
 .topic-input:hover {
-  border-color: #b8a797;
+  border-color: #c9cde3;
 }
 .topic-input:focus,
 .topic-input:focus-visible {
   border-color: var(--taupe);
-  box-shadow: 0 0 0 4px rgba(255, 219, 187, 0.4);
+  box-shadow: 0 0 0 4px rgba(167, 150, 255, 0.4);
   outline: none;
 }
 .topic-input::placeholder {
@@ -296,7 +317,7 @@ html.cursor-visible .cursor-glow {
 }
 .concept-card:hover {
   border-color: var(--beige);
-  box-shadow: 0 18px 40px -24px rgba(102, 73, 48, 0.35);
+  box-shadow: 0 18px 40px -24px rgba(76, 61, 180, 0.35);
 }
 
 /* ============ 7. Loading ============ */
@@ -328,7 +349,7 @@ html.cursor-visible .cursor-glow {
   margin: -3px 0 0 -3px;
   border-radius: 50%;
   background: var(--peach);
-  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.4);
+  box-shadow: 0 0 0 1px rgba(118, 123, 155, 0.4);
   transform: rotate(calc(var(--k) * 120deg)) translateY(-7px);
 }
 
@@ -345,7 +366,7 @@ html.cursor-visible .cursor-glow {
   to { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #efe6dc 0%, #f8f1e9 50%, #efe6dc 100%);
+  background: linear-gradient(90deg, #eceffa 0%, #f8f9fe 50%, #eceffa 100%);
   background-size: 800px 100%;
   animation: shimmer 1.6s linear infinite;
   border-radius: 6px;
@@ -370,7 +391,7 @@ html.cursor-visible .cursor-glow {
 }
 .quiz-option[data-state="idle"]:hover {
   border-color: var(--taupe);
-  background-color: rgba(255, 219, 187, 0.2);
+  background-color: rgba(167, 150, 255, 0.2);
 }
 .quiz-option[data-state="idle"]:hover .quiz-letter {
   border-color: var(--taupe);
@@ -462,7 +483,7 @@ html.cursor-visible .cursor-glow {
 .tilt-card:hover {
   --lift: -3px;
   border-color: var(--taupe);
-  box-shadow: 0 16px 30px -18px rgba(102, 73, 48, 0.45);
+  box-shadow: 0 16px 30px -18px rgba(76, 61, 180, 0.45);
 }
 .score-pill {
   transition:
@@ -471,7 +492,7 @@ html.cursor-visible .cursor-glow {
 }
 .tilt-card:hover .score-pill {
   transform: scale(0.94);
-  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.55);
+  box-shadow: 0 0 0 1px rgba(118, 123, 155, 0.55);
 }
 .open-hint {
   opacity: 0;
@@ -516,7 +537,7 @@ html.cursor-visible .cursor-glow {
   transition: background-color 200ms ease;
 }
 .copy-btn:hover {
-  background-color: #f6c9a1;
+  background-color: #dcd5ff;
 }
 .copy-btn[data-pop] {
   animation: press-pop 220ms var(--ease-spring);
@@ -605,7 +626,7 @@ html.cursor-visible .cursor-glow {
     transform 200ms var(--ease-spring);
 }
 .btn-on-dark:hover {
-  background: #fff1e4;
+  background: #f6f4ff;
 }
 .btn-on-dark:active {
   transform: scale(0.97);
@@ -626,3 +647,133 @@ html.cursor-visible .cursor-glow {
 .animate-dot-1 { animation: pulse-dot 1.3s ease-in-out infinite; }
 .animate-dot-2 { animation: pulse-dot 1.3s ease-in-out 0.18s infinite; }
 .animate-dot-3 { animation: pulse-dot 1.3s ease-in-out 0.36s infinite; }
+
+/* ============ Dashboard layout ============ */
+.ask-card {
+  box-shadow: 0 18px 40px -24px rgba(76, 61, 180, 0.35), 0 1px 0 rgba(29, 33, 66, 0.03);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.ask-card:focus-within {
+  border-color: rgba(108, 92, 231, 0.45);
+  box-shadow: 0 0 0 4px rgba(167, 150, 255, 0.25), 0 18px 40px -24px rgba(76, 61, 180, 0.45);
+}
+.topic-input-bare {
+  border: 0;
+  background: transparent;
+  caret-color: var(--coffee);
+  outline: none;
+}
+.topic-input-bare::placeholder {
+  color: var(--taupe);
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+.topic-input-bare:focus::placeholder {
+  opacity: 0.45;
+}
+.topic-input-bare:focus-visible {
+  outline: none;
+}
+
+.search-box {
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.search-box:focus-within {
+  border-color: rgba(108, 92, 231, 0.45);
+  box-shadow: 0 0 0 4px rgba(167, 150, 255, 0.22);
+}
+
+.start-card {
+  transition: transform 250ms var(--ease-out-expo), box-shadow 250ms ease, border-color 200ms ease;
+}
+.start-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: rgba(108, 92, 231, 0.3);
+  box-shadow: 0 16px 30px -18px rgba(76, 61, 180, 0.45);
+}
+
+.nav-link,
+.recent-item,
+.library-item,
+.up-next-item,
+.chip {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.rail-card {
+  transition: box-shadow 250ms ease;
+}
+.rail-card:hover {
+  box-shadow: 0 16px 36px -20px rgba(76, 61, 180, 0.35);
+}
+
+/* Vertical line joining the "Up next" circles. */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  bottom: 20px;
+  left: 19px;
+  width: 2px;
+  background: var(--beige);
+}
+
+.progress-ring {
+  transition: stroke-dashoffset 900ms var(--ease-out-expo);
+}
+.course-bar {
+  transition: width 900ms var(--ease-out-expo);
+}
+
+/* "AI is thinking" waveform */
+.thinking-wave span {
+  display: block;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--coffee);
+  opacity: 0.5;
+  animation: wave 1s ease-in-out infinite;
+  transform-origin: bottom;
+}
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+.thinking-sparkle {
+  animation: twinkle 1.6s ease-in-out infinite;
+}
+
+/* ============ Mascot ============ */
+.mascot {
+  animation: float 5s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.mascot-float-a {
+  animation: float 4s ease-in-out infinite;
+}
+.mascot-float-b {
+  animation: float 6s ease-in-out 0.8s infinite;
+}
+.mascot-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.45; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+/* Occasional blink: the eye arcs squash for a moment. */
+.mascot-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blink 5s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.15); }
+}
