@@ -62,8 +62,9 @@ fails or can't be evaluated is discarded.
 `correctAnswer` that matches an option. Invalid output is retried once.
 
 **Bounded iteration.** Max 6 agent turns, at most one revision per lesson, one
-retry for malformed output, 60s per model call, no revision after 120s, no
-agent turn after 200s, 300s route limit.
+retry for malformed output, one retry for transient call failures, 60s per
+model call, no revision after 120s, no agent turn after 200s, and a hard 280s
+deadline for every call (300s route limit).
 
 **Server-side grading.** The browser sends chosen options; the server grades
 against the stored lesson. Only a module's first completion counts.

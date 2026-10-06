@@ -95,9 +95,15 @@ error. There's no point letting the model reason about an outage.
 
 **Everything is bounded.** Max 6 agent turns, one nudge if the agent tries to
 finish without writing, at most one revision per lesson, one retry for
-malformed output, a 60s timeout per model call, no revision after 120s, no
-new agent turn after 200s, and a 300s route limit. A loop with no bounds is a
-bill and a hang waiting to happen.
+malformed output, one retry for a timed-out or failed call (429/5xx), a 60s
+timeout per model call, no revision after 120s, no new agent turn after 200s,
+and a hard 280s deadline that every call (and retry) must fit inside the
+route's 300s limit. A loop with no bounds is a bill and a hang waiting to
+happen.
+
+**Retry what's transient, not what's wrong.** A provider stall or a 503 is
+worth one more try; a 400 or bad credentials isn't. Retries only happen if the
+run's deadline leaves room for them.
 
 **Never trust model output.** The lesson writer uses JSON-schema structured
 output *and* validates with zod: 2-4 questions, exactly 4 options each, and
@@ -133,6 +139,7 @@ model problem:
 | Lessons arrived with no quiz | Schema allowed an empty `questions` array; only the revise prompt mentioned quiz rules | Schema requires 2-4 valid questions; the same rules go into every prompt; bounded retry |
 | A lesson was shown that had never been scored | The loop revised *after* its last evaluation | Every revision is re-evaluated; only the best evaluated version can be returned |
 | One request took 4+ minutes | Model calls had no timeout | 60s timeout per call, plus deadlines for revisions and agent turns |
+| A run failed with "aborted due to timeout", and we couldn't tell where | One slow call sank the whole run, and the trace was lost on failure | One retry for transient failures within a hard run deadline; per-step timings in the trace; failed runs log their trace |
 | Production build crashed | The DB client was created at import time, so the build needed secrets | Create the client on first use |
 | Quiz results could be faked | The client decided what was correct | Server-side grading against the stored lesson |
 
