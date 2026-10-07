@@ -8,13 +8,8 @@ import { Reveal } from "./Reveal";
 import type { Course } from "./types";
 
 const CARD_STAGGER = 60;
-// Title colour and progress-bar gradient per card, cycling.
-const ACCENTS = [
-  { title: "text-espresso", bar: "from-blue to-violet" },
-  { title: "text-coffee", bar: "from-violet to-coffee" },
-  { title: "text-espresso", bar: "from-mint to-blue" },
-  { title: "text-coffee", bar: "from-amber to-rose" },
-];
+// Progress bars are coffee on a peach track; finished courses go sage.
+const BAR = { active: "bg-coffee", finished: "bg-sage" };
 
 /** The learner's courses: active ones to continue, finished ones to revisit. */
 export function CourseList({
@@ -62,7 +57,7 @@ export function CourseList({
               delay={(i + 1) * CARD_STAGGER}
               stagger={CARD_STAGGER}
             >
-              <CourseCard course={course} accent={ACCENTS[i % ACCENTS.length]} onContinue={onContinue} disabled={disabled} />
+              <CourseCard course={course} onContinue={onContinue} disabled={disabled} />
             </Reveal>
           ))}
         </div>
@@ -73,12 +68,10 @@ export function CourseList({
 
 function CourseCard({
   course,
-  accent,
   onContinue,
   disabled,
 }: {
   course: Course;
-  accent: (typeof ACCENTS)[number];
   onContinue: (topic: string) => void;
   disabled: boolean;
 }) {
@@ -98,17 +91,17 @@ function CourseCard({
       type="button"
       disabled={disabled}
       onClick={() => onContinue(course.topic)}
-      className="tilt-card group flex h-full w-full flex-col rounded-3xl border border-beige/80 bg-paper p-5 text-left disabled:cursor-wait disabled:opacity-70"
+      className="tilt-card group flex h-full w-full flex-col rounded-2xl border border-beige bg-paper p-5 text-left disabled:cursor-wait disabled:opacity-70"
     >
-      <span className={`text-[15px] leading-snug font-bold ${accent.title}`}>{course.title}</span>
+      <span className="font-display text-[17px] leading-snug font-medium text-espresso">{course.title}</span>
       <span className="mt-1 line-clamp-1 text-xs text-taupe">
         {finished ? "Completed ✓ · tap to review" : `Module ${course.currentModule + 1} of ${total} · ${next?.title ?? ""}`}
       </span>
 
       <span className="mt-auto flex items-center gap-3 pt-5" aria-label={`${done} of ${total} modules done`}>
-        <span className="h-2 flex-1 overflow-hidden rounded-full bg-beige/70" aria-hidden>
+        <span className="h-2 flex-1 overflow-hidden rounded-full bg-peach/60" aria-hidden>
           <span
-            className={`course-bar block h-full rounded-full bg-gradient-to-r ${accent.bar}`}
+            className={`course-bar block h-full rounded-full ${finished ? BAR.finished : BAR.active}`}
             style={{ width: `${Math.max(percent, 4)}%` }}
           />
         </span>

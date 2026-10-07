@@ -4,12 +4,11 @@ import { useState, useEffect, useRef, useSyncExternalStore, type CSSProperties }
 import { CourseList } from "@/components/CourseList";
 import { CourseOverview } from "@/components/CourseOverview";
 import { CustomCursor } from "@/components/CustomCursor";
-import { LibraryCard, ProgressCard, StartCards, ThinkingCard, UpNextCard } from "@/components/Dashboard";
+import { LibraryCard, ProgressCard, StartCards, ThinkingCard, UpNextCard, matchStarters } from "@/components/Dashboard";
 import { ArrowUpRightIcon, SparkleIcon } from "@/components/Icons";
 import { LessonView } from "@/components/LessonView";
 import { LessonSkeleton, OrbitDots, StatusCycle, TopProgressBar } from "@/components/LoadingIndicator";
 import { MagneticButton } from "@/components/MagneticButton";
-import { Mascot } from "@/components/Mascot";
 import { Sidebar } from "@/components/Sidebar";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
 import { greeting, learningStats } from "@/components/stats";
@@ -110,6 +109,11 @@ export default function Home() {
   const learnerId = useSyncExternalStore(noSubscribe, getOrCreateLearnerId, () => "");
   // Client-only (the server doesn't know the learner's local hour).
   const hello = useSyncExternalStore(noSubscribe, () => greeting(new Date().getHours()), () => "Hello");
+  const dateline = useSyncExternalStore(
+    noSubscribe,
+    () => new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }),
+    () => ""
+  );
   const [query, setQuery] = useState("");
   const [activeSection, setActiveSection] = useState("top");
   const [view, setView] = useState<View | null>(null);
@@ -294,6 +298,9 @@ export default function Home() {
   const visibleLibrary = q
     ? library.filter((l) => [l.topic, l.lesson_data?.title ?? ""].some((t) => t.toLowerCase().includes(q)))
     : library;
+  // Everything saved for this learner: written course modules + single lessons.
+  const lessonCount = courses.reduce((n, c) => n + c.modules.filter((m) => m.lesson).length, 0) + library.length;
+  const matchingTiles = matchStarters(q).length;
   const pendingKey = Object.entries(prefetchState).find(([, state]) => state === "pending")?.[0];
   const pendingCourse = pendingKey ? courses.find((c) => topicKey(c.topic) === pendingKey) : undefined;
 
@@ -303,7 +310,13 @@ export default function Home() {
       {loading && <TopProgressBar />}
 
       <div className="relative z-[1] flex min-h-screen text-espresso">
-        <Sidebar courses={courses} learnerId={learnerId} activeSection={activeSection} onOpenModule={openModule} />
+        <Sidebar
+          courses={courses}
+          learnerId={learnerId}
+          lessonCount={lessonCount}
+          activeSection={activeSection}
+          onOpenModule={openModule}
+        />
 
         <div className="min-w-0 flex-1">
           <TopBar
@@ -311,21 +324,25 @@ export default function Home() {
             onQuery={setQuery}
             streak={stats.streak}
             learnerId={learnerId}
-            courseCount={courses.length}
+            lessonCount={lessonCount}
           />
 
           <div id="top" className="grid scroll-mt-24 gap-6 px-4 pb-20 sm:px-6 lg:px-8 xl:grid-cols-[minmax(0,1fr)_340px]">
             <main className="min-w-0 pt-8">
               {/* Hero */}
-              <section className="grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_220px] lg:grid-cols-[minmax(0,1fr)_260px]">
+              <section className="max-w-3xl pt-4">
                 <div>
-                  <p className="intro text-[15px] font-semibold text-espresso/85" style={intro(0)}>
-                    {hello} <span aria-hidden>👋</span>
-                  </p>
+                  <div className="intro flex items-center gap-3" style={intro(0)}>
+                    <span className="h-[3px] w-10 rounded-full bg-peach" aria-hidden />
+                    <p className="text-xs font-medium tracking-[0.18em] text-taupe uppercase">
+                      {hello}
+                      {dateline && <span className="text-taupe/70"> · {dateline}</span>}
+                    </p>
+                  </div>
                   <SplitHeading
                     text={HEADING}
                     italicWords={["learn"]}
-                    className="font-display mt-3 text-[38px] leading-[1.08] font-extrabold tracking-tight text-espresso sm:text-5xl xl:text-[54px]"
+                    className="font-display mt-5 text-[42px] leading-[1.04] font-medium tracking-tight text-espresso sm:text-6xl xl:text-[68px]"
                   />
                   <p
                     className="intro mt-4 max-w-xl text-[15px] leading-relaxed text-taupe"
@@ -335,9 +352,6 @@ export default function Home() {
                     each 5&ndash;10 minute module and check it before you see it, then pick up where
                     you left off whenever you come back.
                   </p>
-                </div>
-                <div className="intro hidden md:block" style={intro(SUBTITLE_AT)}>
-                  <Mascot className="h-[200px] lg:h-[230px]" />
                 </div>
               </section>
 
@@ -391,8 +405,25 @@ export default function Home() {
                 </form>
               </div>
 
-              <div className="intro mt-6" style={intro(LIBRARY_AT)}>
-                <StartCards onStart={learn} disabled={loading} />
+              <div className="intro mt-6 pb-4" style={intro(LIBRARY_AT)}>
+                {q && (
+                  <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-taupe" role="status">
+                    <span>
+                      Results for <span className="font-semibold text-espresso">&ldquo;{query.trim()}&rdquo;</span>:{" "}
+                      {matchingTiles} topic{matchingTiles === 1 ? "" : "s"}, {visibleCourses.length} course
+                      {visibleCourses.length === 1 ? "" : "s"}, {visibleLibrary.length} single lesson
+                      {visibleLibrary.length === 1 ? "" : "s"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="rounded-full border border-beige px-2.5 py-0.5 text-xs text-coffee hover:bg-peach/50"
+                    >
+                      Clear
+                    </button>
+                  </p>
+                )}
+                <StartCards onStart={learn} disabled={loading} query={q} />
               </div>
 
               {loading && <LessonSkeleton />}
@@ -447,7 +478,7 @@ export default function Home() {
                 />
               ) : null}
               <UpNextCard courses={courses} doneToday={stats.doneToday} onContinue={learn} disabled={loading} />
-              <ProgressCard stats={stats} />
+              <ProgressCard stats={stats} courseCount={courses.length} />
               <LibraryCard lessons={visibleLibrary} onOpen={openPastLesson} />
             </aside>
           </div>

@@ -45,8 +45,8 @@ export function QuizQuestion({
             picked === null
               ? "bg-peach text-coffee"
               : correct
-                ? "animate-badge bg-emerald-500 text-white"
-                : "animate-badge bg-red-400 text-white"
+                ? "animate-badge bg-sage text-paper"
+                : "animate-badge bg-red-400 text-paper"
           }`}
         >
           {picked === null ? index + 1 : correct ? "✓" : "✗"}
@@ -85,10 +85,10 @@ export function QuizQuestion({
         <div
           role="status"
           className={`quiz-explain mt-4 rounded-xl border p-4 text-sm sm:ml-10 ${
-            correct ? "border-emerald-500/30 bg-emerald-50" : "border-red-400/40 bg-red-50"
+            correct ? "border-sage/30 bg-sage/10" : "border-red-400/40 bg-red-50"
           }`}
         >
-          <div className={`font-semibold ${correct ? "text-emerald-700" : "text-red-700"}`}>
+          <div className={`font-semibold ${correct ? "text-sage" : "text-red-700"}`}>
             {correct ? "✓ Correct" : "✗ Not quite"}
           </div>
           <p className="mt-1 leading-relaxed text-espresso/85">{question.explanation}</p>

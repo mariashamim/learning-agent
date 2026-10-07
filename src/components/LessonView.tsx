@@ -247,7 +247,7 @@ function QuizOutcome({
       {submission.state === "error" && (
         <p className="mt-2 text-sm text-peach/80">
           {submission.message}{" "}
-          <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-white">
+          <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-paper">
             Try again
           </button>
         </p>

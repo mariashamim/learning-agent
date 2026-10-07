@@ -1,6 +1,6 @@
 "use client";
 
-import { BookIcon, ChartIcon, HomeIcon, LibraryIcon, SparkleIcon } from "./Icons";
+import { BookIcon, ChartIcon, HomeIcon, LibraryIcon } from "./Icons";
 import { LearnerPill } from "./LearnerPill";
 import { recentLessons, timeAgo } from "./stats";
 import type { Course } from "./types";
@@ -12,16 +12,16 @@ const NAV = [
   { href: "#library", label: "Library", Icon: LibraryIcon },
 ];
 
-const RECENT_TINTS = ["bg-blue/10 text-blue", "bg-violet/10 text-violet", "bg-mint/10 text-mint", "bg-amber/10 text-amber", "bg-rose/10 text-rose"];
+const RECENT_TINTS = ["bg-peach/60 text-coffee", "bg-amber/15 text-amber", "bg-sage/15 text-sage", "bg-beige/40 text-coffee"];
 
 export function Brand() {
   return (
-    <a href="#top" className="group flex items-center gap-3">
-      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] text-white shadow-[0_8px_20px_-8px_rgba(108,92,231,0.7)] transition-transform duration-300 group-hover:rotate-12">
-        <SparkleIcon size={22} strokeWidth={2} />
+    <a href="#top" className="group flex items-center gap-2.5 sm:gap-3">
+      <span className="font-display flex h-9 w-9 items-center justify-center rounded-xl bg-coffee text-lg text-peach italic transition-transform duration-300 group-hover:-rotate-6 sm:h-10 sm:w-10 sm:text-xl">
+        S
       </span>
       <span className="leading-tight">
-        <span className="font-display block text-lg font-bold text-espresso">StudyBuddy</span>
+        <span className="font-display block text-lg font-semibold text-espresso sm:text-xl">StudyBuddy</span>
         <span className="hidden text-[11px] text-taupe sm:block">an AI tutor with a memory</span>
       </span>
     </a>
@@ -32,18 +32,21 @@ export function Brand() {
 export function Sidebar({
   courses,
   learnerId,
+  lessonCount,
   activeSection,
   onOpenModule,
 }: {
   courses: Course[];
   learnerId: string;
+  /** Lessons saved for this learner (course modules + single lessons). */
+  lessonCount: number;
   activeSection: string;
   onOpenModule: (course: Course, moduleIndex: number) => void;
 }) {
   const recent = recentLessons(courses);
 
   return (
-    <aside className="sidebar sticky top-0 hidden h-screen w-[264px] flex-shrink-0 flex-col border-r border-beige/70 bg-paper/70 px-5 py-6 backdrop-blur-xl lg:flex">
+    <aside className="sidebar sticky top-0 hidden h-screen w-[264px] flex-shrink-0 flex-col border-r border-beige/70 bg-background px-5 py-6 lg:flex">
       <Brand />
 
       <nav className="mt-8 space-y-1" aria-label="Sections">
@@ -55,7 +58,7 @@ export function Sidebar({
               href={href}
               aria-current={active ? "page" : undefined}
               className={`nav-link flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[15px] font-medium ${
-                active ? "bg-peach/80 text-coffee" : "text-espresso/80 hover:bg-peach/50 hover:text-espresso"
+                active ? "bg-peach text-coffee" : "text-espresso/80 hover:bg-peach/40 hover:text-espresso"
               }`}
             >
               <Icon size={20} />
@@ -100,7 +103,7 @@ export function Sidebar({
       </div>
 
       <div className="mt-4 border-t border-beige/70 pt-4">
-        <LearnerPill learnerId={learnerId} courseCount={courses.length} tipPlacement="above" wide />
+        <LearnerPill learnerId={learnerId} lessonCount={lessonCount} tipPlacement="above" wide />
         <p className="font-display mt-4 px-1 text-sm text-taupe/80 italic">Better learning, brighter future ♡</p>
       </div>
     </aside>
