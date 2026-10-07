@@ -8,8 +8,8 @@ import { Reveal } from "./Reveal";
 import type { Course } from "./types";
 
 const CARD_STAGGER = 60;
-// Progress bars are coffee on a peach track; finished courses go sage.
-const BAR = { active: "bg-coffee", finished: "bg-sage" };
+// Progress bars are plum on a dusty-pink track; finished courses go deep indigo.
+const BAR = { active: "bg-coffee", finished: "bg-indigo" };
 
 /** The learner's courses: active ones to continue, finished ones to revisit. */
 export function CourseList({

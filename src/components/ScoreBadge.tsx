@@ -2,9 +2,9 @@
 export function ScoreBadge({ score }: { score: number }) {
   const tone =
     score >= 8
-      ? "border-sage/30 bg-sage/10 text-sage"
+      ? "border-coffee/30 bg-peach/50 text-coffee"
       : score >= 6
-        ? "border-taupe/40 bg-peach/60 text-coffee"
+        ? "border-taupe/40 bg-paper text-taupe"
         : "border-red-400/40 bg-red-50 text-red-800";
   return (
     <span

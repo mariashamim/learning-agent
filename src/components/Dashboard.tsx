@@ -22,8 +22,8 @@ import type { Course, LessonRow } from "./types";
 
 // ---------- Start something new ----------
 
-// Each tile gets a faint warm tint; all share the cream card, beige border and
-// coffee text, with a peach accent on hover.
+// Each tile gets a faint tint from the palette; all share the light card,
+// dusty-pink border and plum text, with a dusty-pink accent on hover.
 export const STARTERS = [
   { topic: "Philosophy", blurb: "Big questions, sharper thinking.", Icon: BrainIcon, tint: "bg-peach/20" },
   { topic: "Game Theory", blurb: "Strategy, incentives and choices.", Icon: ChessIcon, tint: "bg-amber/[0.07]" },
@@ -144,7 +144,7 @@ export function UpNextCard({
       <ol className="timeline relative space-y-1">
         {doneToday.map(({ course, moduleIndex }) => (
           <li key={`done-${course.id}-${moduleIndex}`} className="flex items-start gap-3 rounded-xl p-2">
-            <span className="relative z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-sage text-paper">
+            <span className="relative z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-coffee text-paper">
               <CheckIcon size={14} strokeWidth={2.5} />
             </span>
             <span className="min-w-0">
@@ -239,7 +239,7 @@ export function ProgressCard({
         )}
         <Stat
           icon={<StarIcon size={18} />}
-          tone="bg-sage/15 text-sage"
+          tone="bg-indigo/10 text-indigo"
           value={stats.accuracy === null ? undefined : `${stats.accuracy}%`}
           label={stats.accuracy === null ? "Quiz accuracy shows after your first quiz" : "quiz accuracy"}
         />
@@ -327,7 +327,7 @@ export function LibraryCard({ lessons, onOpen }: { lessons: LessonRow[]; onOpen:
               >
                 <span
                   className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
-                    ["bg-peach/60 text-coffee", "bg-amber/15 text-amber", "bg-sage/15 text-sage"][i % 3]
+                    ["bg-peach/60 text-coffee", "bg-amber/15 text-amber", "bg-indigo/10 text-indigo"][i % 3]
                   }`}
                 >
                   <DocIcon size={16} />

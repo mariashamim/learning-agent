@@ -12,7 +12,7 @@ const NAV = [
   { href: "#library", label: "Library", Icon: LibraryIcon },
 ];
 
-const RECENT_TINTS = ["bg-peach/60 text-coffee", "bg-amber/15 text-amber", "bg-sage/15 text-sage", "bg-beige/40 text-coffee"];
+const RECENT_TINTS = ["bg-peach/60 text-coffee", "bg-amber/15 text-amber", "bg-indigo/10 text-indigo", "bg-beige/40 text-coffee"];
 
 export function Brand() {
   return (

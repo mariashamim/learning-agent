@@ -1,17 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  /* Warm editorial palette. */
-  --background: #faf5ef; /* page: warm cream */
-  --paper: #fffdfa; /* cards / surfaces */
-  --foreground: #3a2a1e; /* primary text: deep coffee */
-  --espresso: #3a2a1e;
-  --taupe: #997e67; /* muted text */
-  --beige: #ccbeb1; /* borders */
-  --peach: #ffdbbb; /* accent */
-  --coffee: #664930; /* deep accent */
-  --sage: #4a7c59; /* success */
-  --amber: #c48a3f; /* warning / streak */
+  /* Plum & blush palette. Token names are historical; the comment on each
+     line says what it is now. Palette: #190019 #2B124C #522B5B #854F6C
+     #DFB6B2 #FBE4D8. */
+  --background: #fbe4d8; /* page: blush cream */
+  --paper: #fff5ef; /* cards / surfaces: a lighter tint of the blush */
+  --foreground: #190019; /* primary text: near-black plum */
+  --espresso: #190019; /* dark surfaces (trace, toast, quiz result) */
+  --taupe: #854f6c; /* muted text: mauve */
+  --beige: #dfb6b2; /* borders: dusty pink */
+  --peach: #dfb6b2; /* soft accent / highlight: dusty pink */
+  --coffee: #522b5b; /* primary accent: plum */
+  --indigo: #2b124c; /* deepest accent: hover / pressed */
+  --sage: #4a7c59; /* success (correct answers) */
+  --amber: #854f6c; /* streak / secondary accent: mauve */
 
   --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -28,6 +31,7 @@
   --color-coffee: var(--coffee);
   --color-espresso: var(--espresso);
   --color-sage: var(--sage);
+  --color-indigo: var(--indigo);
   --color-amber: var(--amber);
 
   --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
@@ -92,7 +96,7 @@ body {
   border-radius: 50%;
   background: var(--peach);
   /* Hairline so a peach dot stays findable on cream. */
-  box-shadow: 0 0 0 1px rgba(102, 73, 48, 0.45);
+  box-shadow: 0 0 0 1px rgba(82, 43, 91, 0.45);
   opacity: 0;
   transition: opacity 200ms ease;
 }
@@ -109,7 +113,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 219, 187, 0.55);
+  background: rgba(223, 182, 178, 0.55);
   border: 1.5px solid var(--peach);
   box-shadow: 0 0 12px 3px var(--peach);
   filter: blur(1.5px);
@@ -142,7 +146,7 @@ html.cursor-visible .cursor-ring[data-pressed] .cursor-ring-inner {
   width: 1200px;
   height: 1200px;
   margin: -600px 0 0 -600px;
-  background: radial-gradient(circle closest-side, rgba(255, 219, 187, 0.12), rgba(255, 219, 187, 0));
+  background: radial-gradient(circle closest-side, rgba(223, 182, 178, 0.12), rgba(223, 182, 178, 0));
   opacity: 0;
   transition: opacity 600ms ease;
 }
@@ -162,11 +166,11 @@ html.cursor-visible .cursor-glow {
 .btn-primary {
   background-color: var(--coffee);
   color: var(--peach);
-  box-shadow: 0 1px 2px rgba(58, 42, 30, 0.12);
+  box-shadow: 0 1px 2px rgba(25, 0, 25, 0.12);
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #553c27;
-  box-shadow: 0 10px 24px -10px rgba(58, 42, 30, 0.5);
+  background-color: #2b124c;
+  box-shadow: 0 10px 24px -10px rgba(25, 0, 25, 0.5);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
@@ -217,12 +221,12 @@ html.cursor-visible .cursor-glow {
     box-shadow 200ms ease;
 }
 .topic-input:hover {
-  border-color: #b8a797;
+  border-color: #c99a98;
 }
 .topic-input:focus,
 .topic-input:focus-visible {
   border-color: var(--taupe);
-  box-shadow: 0 0 0 4px rgba(255, 219, 187, 0.4);
+  box-shadow: 0 0 0 4px rgba(223, 182, 178, 0.4);
   outline: none;
 }
 .topic-input::placeholder {
@@ -299,7 +303,7 @@ html.cursor-visible .cursor-glow {
 }
 .concept-card:hover {
   border-color: var(--beige);
-  box-shadow: 0 18px 40px -24px rgba(102, 73, 48, 0.35);
+  box-shadow: 0 18px 40px -24px rgba(82, 43, 91, 0.35);
 }
 
 /* ============ 7. Loading ============ */
@@ -331,7 +335,7 @@ html.cursor-visible .cursor-glow {
   margin: -3px 0 0 -3px;
   border-radius: 50%;
   background: var(--peach);
-  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.4);
+  box-shadow: 0 0 0 1px rgba(133, 79, 108, 0.4);
   transform: rotate(calc(var(--k) * 120deg)) translateY(-7px);
 }
 
@@ -348,7 +352,7 @@ html.cursor-visible .cursor-glow {
   to { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #efe6dc 0%, #f8f1e9 50%, #efe6dc 100%);
+  background: linear-gradient(90deg, #f4d2c6 0%, #fdeee6 50%, #f4d2c6 100%);
   background-size: 800px 100%;
   animation: shimmer 1.6s linear infinite;
   border-radius: 6px;
@@ -373,7 +377,7 @@ html.cursor-visible .cursor-glow {
 }
 .quiz-option[data-state="idle"]:hover {
   border-color: var(--taupe);
-  background-color: rgba(255, 219, 187, 0.2);
+  background-color: rgba(223, 182, 178, 0.2);
 }
 .quiz-option[data-state="idle"]:hover .quiz-letter {
   border-color: var(--taupe);
@@ -465,7 +469,7 @@ html.cursor-visible .cursor-glow {
 .tilt-card:hover {
   --lift: -3px;
   border-color: var(--taupe);
-  box-shadow: 0 16px 30px -18px rgba(102, 73, 48, 0.45);
+  box-shadow: 0 16px 30px -18px rgba(82, 43, 91, 0.45);
 }
 .score-pill {
   transition:
@@ -474,7 +478,7 @@ html.cursor-visible .cursor-glow {
 }
 .tilt-card:hover .score-pill {
   transform: scale(0.94);
-  box-shadow: 0 0 0 1px rgba(153, 126, 103, 0.55);
+  box-shadow: 0 0 0 1px rgba(133, 79, 108, 0.55);
 }
 .open-hint {
   opacity: 0;
@@ -519,7 +523,7 @@ html.cursor-visible .cursor-glow {
   transition: background-color 200ms ease;
 }
 .copy-btn:hover {
-  background-color: #f6c9a1;
+  background-color: #d3a29e;
 }
 .copy-btn[data-pop] {
   animation: press-pop 220ms var(--ease-spring);
@@ -608,7 +612,7 @@ html.cursor-visible .cursor-glow {
     transform 200ms var(--ease-spring);
 }
 .btn-on-dark:hover {
-  background: #fff1e4;
+  background: #fff5ef;
 }
 .btn-on-dark:active {
   transform: scale(0.97);
@@ -632,12 +636,12 @@ html.cursor-visible .cursor-glow {
 
 /* ============ Dashboard layout ============ */
 .ask-card {
-  box-shadow: 0 18px 40px -24px rgba(102, 73, 48, 0.35), 0 1px 0 rgba(58, 42, 30, 0.03);
+  box-shadow: 0 18px 40px -24px rgba(82, 43, 91, 0.35), 0 1px 0 rgba(25, 0, 25, 0.03);
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .ask-card:focus-within {
-  border-color: rgba(102, 73, 48, 0.45);
-  box-shadow: 0 0 0 4px rgba(255, 219, 187, 0.25), 0 18px 40px -24px rgba(102, 73, 48, 0.45);
+  border-color: rgba(82, 43, 91, 0.45);
+  box-shadow: 0 0 0 4px rgba(223, 182, 178, 0.25), 0 18px 40px -24px rgba(82, 43, 91, 0.45);
 }
 .topic-input-bare {
   border: 0;
@@ -661,8 +665,8 @@ html.cursor-visible .cursor-glow {
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .search-box:focus-within {
-  border-color: rgba(102, 73, 48, 0.45);
-  box-shadow: 0 0 0 4px rgba(255, 219, 187, 0.22);
+  border-color: rgba(82, 43, 91, 0.45);
+  box-shadow: 0 0 0 4px rgba(223, 182, 178, 0.22);
 }
 
 .start-card {
@@ -676,8 +680,8 @@ html.cursor-visible .cursor-glow {
 .start-card:hover:not(:disabled) {
   transform: translateY(-3px);
   border-color: var(--peach);
-  background-color: rgba(255, 219, 187, 0.3);
-  box-shadow: 0 14px 28px -20px rgba(102, 73, 48, 0.45);
+  background-color: rgba(223, 182, 178, 0.3);
+  box-shadow: 0 14px 28px -20px rgba(82, 43, 91, 0.45);
 }
 .start-icon {
   transition: background-color 200ms ease, border-color 200ms ease;
@@ -699,7 +703,7 @@ html.cursor-visible .cursor-glow {
   transition: box-shadow 250ms ease;
 }
 .rail-card:hover {
-  box-shadow: 0 16px 36px -20px rgba(102, 73, 48, 0.35);
+  box-shadow: 0 16px 36px -20px rgba(82, 43, 91, 0.35);
 }
 
 /* Vertical line joining the "Up next" circles. */
