@@ -20,17 +20,14 @@ const NAV = [
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
 /**
- * The Weavr mark (bird and woven loops) on a light tile. The tile keeps the
- * logo's dark-purple strands visible against the app's dark background.
+ * The Weavr mark (bird and woven loops) on a transparent background. Uses the
+ * dark-background variant: the same artwork with the loops lifted to lavender
+ * and orchid and the bird brightened, so it reads on deep purple.
  */
 export function LogoMark({ size = 40 }: { size?: number }) {
   return (
-    <span
-      className="logo-mark flex flex-shrink-0 items-center justify-center rounded-xl bg-[#fbf5ec]"
-      style={{ width: size, height: size, padding: size * 0.09 }}
-      aria-hidden
-    >
-      <Image src="/brand/weavr-mark.webp" alt="" width={size} height={size} className="h-full w-full object-contain" priority />
+    <span className="logo-mark flex flex-shrink-0 items-center justify-center" style={{ width: size, height: size }} aria-hidden>
+      <Image src="/brand/weavr-mark-dark.webp" alt="" width={size} height={size} className="h-full w-full object-contain" priority />
     </span>
   );
 }
