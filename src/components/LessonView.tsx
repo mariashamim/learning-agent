@@ -100,7 +100,7 @@ export function LessonView({
 
         {tutorNote && (
           <div className="mt-6 flex gap-3 rounded-2xl border border-beige bg-paper px-5 py-4">
-            <span className="font-display flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-espresso text-sm text-peach italic">
+            <span className="font-display flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gold text-sm text-ink italic">
               T
             </span>
             <div>
@@ -145,7 +145,7 @@ export function LessonView({
               <p className="mt-4 text-[15.5px] leading-[1.75] text-espresso/90 sm:pl-9">
                 {c.explanation}
               </p>
-              <div className="mt-5 rounded-2xl border-l-[3px] border-taupe/70 bg-peach/35 px-5 py-4 text-[15px] leading-relaxed sm:ml-9">
+              <div className="mt-5 rounded-2xl border-l-[3px] border-gold/70 bg-gold/10 px-5 py-4 text-[15px] leading-relaxed sm:ml-9">
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-coffee">
                   For example
                 </span>
@@ -239,7 +239,7 @@ function QuizOutcome({
   const next = latest && nextIndex !== null && !finishedCourse ? latest.modules[nextIndex] : null;
 
   return (
-    <div className="animate-fade-in mt-6 rounded-2xl bg-espresso px-6 py-5 text-peach">
+    <div className="animate-fade-in mt-6 rounded-2xl border border-gold/30 bg-ink px-6 py-5 text-sand">
       <p className="font-display text-lg">{scoreLine}</p>
 
       {submission.state === "saving" && <p className="mt-2 text-sm text-peach/70">Saving your progress…</p>}
@@ -247,7 +247,7 @@ function QuizOutcome({
       {submission.state === "error" && (
         <p className="mt-2 text-sm text-peach/80">
           {submission.message}{" "}
-          <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-paper">
+          <button type="button" onClick={onRetry} className="underline underline-offset-2 hover:text-gold">
             Try again
           </button>
         </p>
@@ -258,7 +258,7 @@ function QuizOutcome({
           {finishedCourse ? (
             <>
               <p className="text-sm text-peach/85">You&rsquo;ve finished the whole course.</p>
-              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-on-dark">
+              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold">
                 See your course →
               </button>
             </>
@@ -282,7 +282,7 @@ function QuizOutcome({
                   <span className="mt-1 block text-xs text-peach/65">Ready when you are.</span>
                 )}
               </p>
-              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-on-dark">
+              <button type="button" onClick={() => onContinue(latest.topic)} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold">
                 {next.lesson ? `Go to Module ${nextIndex + 1} →` : `Start Module ${nextIndex + 1} →`}
               </button>
             </>
@@ -320,7 +320,7 @@ function QuizProgress({ answered, correct, total }: { answered: number; correct:
 
 function Notice({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-5 rounded-xl border border-beige bg-peach/30 px-4 py-3 text-sm leading-relaxed text-coffee">
+    <p className="mt-5 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm leading-relaxed text-sand">
       {children}
     </p>
   );

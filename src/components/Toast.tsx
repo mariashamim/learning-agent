@@ -11,7 +11,7 @@ export function Toast({ message }: { message: string }) {
   return createPortal(
     <div
       role="status"
-      className="toast pointer-events-none fixed bottom-6 left-1/2 z-[60] rounded-full bg-espresso px-4 py-2 text-sm text-peach shadow-lg"
+      className="toast pointer-events-none fixed bottom-6 left-1/2 z-[60] rounded-full border border-gold/40 bg-ink px-4 py-2 text-sm text-sand shadow-lg"
     >
       {message}
     </div>,

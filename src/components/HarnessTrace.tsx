@@ -55,7 +55,7 @@ export function HarnessTrace({ trace }: { trace: TraceStep[] }) {
               ))}
             </ol>
             <div className="relative mt-4">
-              <pre className="max-h-96 overflow-auto rounded-xl bg-espresso p-4 pr-20 font-mono text-xs leading-relaxed text-peach/90">
+              <pre className="max-h-96 overflow-auto rounded-xl bg-ink p-4 pr-20 font-mono text-xs leading-relaxed text-sand/90">
                 {json}
               </pre>
               <button
@@ -63,7 +63,7 @@ export function HarnessTrace({ trace }: { trace: TraceStep[] }) {
                 onClick={copy}
                 onAnimationEnd={() => setPopping(false)}
                 data-pop={popping || undefined}
-                className="copy-btn absolute top-2.5 right-2.5 rounded-md bg-peach px-2.5 py-1 text-[11px] font-medium text-coffee"
+                className="copy-btn absolute top-2.5 right-2.5 rounded-md bg-gold px-2.5 py-1 text-[11px] font-medium text-ink"
               >
                 {copied ? "Copied" : "Copy"}
               </button>

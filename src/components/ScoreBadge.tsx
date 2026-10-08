@@ -2,10 +2,10 @@
 export function ScoreBadge({ score }: { score: number }) {
   const tone =
     score >= 8
-      ? "border-coffee/30 bg-peach/50 text-coffee"
+      ? "border-gold/40 bg-gold/15 text-gold"
       : score >= 6
         ? "border-taupe/40 bg-paper text-taupe"
-        : "border-red-400/40 bg-red-50 text-red-800";
+        : "border-red-400/40 bg-red-500/10 text-red-300";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium tabular-nums ${tone}`}

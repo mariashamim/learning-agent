@@ -85,8 +85,19 @@ Each run rebuilds the agent's context from there.
 - `src/app/api/attempts/route.ts` — records a finished quiz
 - `src/app/api/courses/route.ts` — the learner's courses
 - `src/app/api/lessons/route.ts` — standalone lessons from before courses
-- `src/app/page.tsx` — the page (state + API calls)
-- `src/components/`, `src/hooks/` — UI
+- `src/app/page.tsx` — Home: welcome + "What do you want to learn?"
+- `src/app/courses/page.tsx` — Courses: your courses, explore, how-it-works scrollytelling
+- `src/app/courses/[id]/page.tsx` — a course's welcome page and module path
+- `src/app/courses/[id]/[module]/page.tsx` — one module: lesson + quiz
+- `src/app/progress/page.tsx` — Progress: knowledge garden, bars, streak, milestones
+- `src/app/library/page.tsx` — Library: bookmarked (starred) courses
+- `src/components/app/AppState.tsx` — shared client state: learner, courses, tutor
+  requests with background prefetch, quiz saving, bookmarks
+- `src/components/app/AppShell.tsx` — layout: left menu, phone tab bar, overlays
+- `src/components/`, `src/hooks/` — UI pieces
+
+Bookmarks are stored in the browser (localStorage, per learner ID), matching
+the per-browser learner identity; they are not in Supabase.
 - `supabase/migrations/` — SQL to run in Supabase
 
 ## Environment

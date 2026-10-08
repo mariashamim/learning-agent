@@ -50,7 +50,7 @@ export function LearnerPill({
           wide ? "w-full" : ""
         }`}
       >
-        <span className="font-display flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-peach text-base text-coffee italic">
+        <span className="font-display flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold text-base text-ink italic">
           L
         </span>
         <span className={`min-w-0 leading-tight ${compact ? "sr-only" : ""}`}>
@@ -63,12 +63,12 @@ export function LearnerPill({
       <span
         id={tipId}
         role="tooltip"
-        className={`learner-tip pointer-events-none absolute z-30 w-max max-w-[15rem] rounded-lg bg-espresso px-3 py-1.5 text-xs text-paper shadow-md ${
+        className={`learner-tip pointer-events-none absolute z-30 w-max max-w-[15rem] rounded-lg border border-beige bg-ink px-3 py-1.5 text-xs text-sand shadow-md ${
           tipPlacement === "above" ? "bottom-full left-0 mb-2" : "top-full right-0 mt-2"
         }`}
       >
         Your browser identity, stored locally. Click to copy.
-        <span className="mt-1 block font-mono text-[10px] break-all text-peach/80">{learnerId}</span>
+        <span className="mt-1 block font-mono text-[10px] break-all text-gold/80">{learnerId}</span>
       </span>
       {toast && <Toast key={toast.id} message={toast.message} />}
     </div>

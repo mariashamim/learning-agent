@@ -32,9 +32,9 @@ export function CoursePath({
           const isActive = i === activeIndex;
           const isNext = i === course.currentModule && course.status === "active";
           const tone = isActive
-            ? "border-coffee bg-coffee text-peach"
+            ? "border-gold bg-gold text-ink"
             : completed
-              ? "border-taupe/60 bg-peach/50 text-coffee"
+              ? "border-gold/40 bg-gold/15 text-gold"
               : isNext
                 ? "border-dashed border-taupe text-coffee"
                 : "border-beige/80 text-taupe/80";
