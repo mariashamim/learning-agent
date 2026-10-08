@@ -21,7 +21,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudyBuddy — an AI tutor with a memory",
+  title: "Weavr — an AI tutor with a memory",
   description: "An agentic tutor that writes, checks, and remembers your lessons.",
 };
 

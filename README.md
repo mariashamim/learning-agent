@@ -1,4 +1,6 @@
-# Learning Agent
+# Weavr
+
+<img src="public/brand/weavr-logo-original.webp" alt="Weavr logo" width="200" />
 
 An agentic tutor, in the spirit of Brilliant. Name any topic and a tutor
 agent plans a short course, writes each 5-10 minute module (checked by a

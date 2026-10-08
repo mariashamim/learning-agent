@@ -111,6 +111,8 @@ async function fetchLibrary(learnerId: string): Promise<{ courses?: Course[]; le
 // ---------- bookmarks (browser-local, per learner) ----------
 
 export type Bookmark = { key: string; topic: string };
+// Storage key keeps the app's old name on purpose: renaming it would lose
+// bookmarks already saved in learners' browsers.
 const BOOKMARK_EVENT = "studybuddy-bookmarks";
 const bookmarkStorageKey = (learnerId: string) => `studybuddy:bookmarks:${learnerId}`;
 

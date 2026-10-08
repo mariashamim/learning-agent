@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -18,15 +19,27 @@ const NAV = [
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
-/** The StudyBuddy mark: a gold "S" tile with a soft glow. */
+/**
+ * The Weavr mark (bird and woven loops) on a light tile. The tile keeps the
+ * logo's dark-purple strands visible against the app's dark background.
+ */
 export function LogoMark({ size = 40 }: { size?: number }) {
   return (
     <span
-      className="logo-mark font-display flex items-center justify-center rounded-xl bg-gold text-ink italic"
-      style={{ width: size, height: size, fontSize: size * 0.55 }}
+      className="logo-mark flex flex-shrink-0 items-center justify-center rounded-xl bg-[#fbf5ec]"
+      style={{ width: size, height: size, padding: size * 0.09 }}
       aria-hidden
     >
-      S
+      <Image src="/brand/weavr-mark.webp" alt="" width={size} height={size} className="h-full w-full object-contain" priority />
+    </span>
+  );
+}
+
+/** "Weavr" in two tones, echoing the logo's wordmark. */
+export function Wordmark({ className = "" }: { className?: string }) {
+  return (
+    <span className={`font-sans font-bold tracking-tight text-sand ${className}`}>
+      Wea<span className="text-gold">vr</span>
     </span>
   );
 }
@@ -38,7 +51,7 @@ export function Brand() {
         <LogoMark />
       </span>
       <span className="leading-tight">
-        <span className="font-display block text-xl font-semibold text-sand">StudyBuddy</span>
+        <Wordmark className="block text-2xl leading-none" />
         <span className="block text-[11px] text-taupe">an AI tutor with a memory</span>
       </span>
     </Link>

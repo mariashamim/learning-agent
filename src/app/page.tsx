@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useSyncExternalStore, type CSSProperties } from "react";
-import { LogoMark } from "@/components/app/AppShell";
+import { LogoMark, Wordmark } from "@/components/app/AppShell";
 import { useAppState } from "@/components/app/AppState";
 import { TopicArt } from "@/components/app/TopicArt";
 import { ArrowRightIcon, ArrowUpRightIcon, SparkleIcon } from "@/components/Icons";
@@ -33,9 +33,11 @@ export default function Home() {
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-4 py-14 sm:px-6 lg:min-h-screen">
       {/* Logo and title */}
       <div className="intro flex items-center gap-4" style={intro(0)}>
-        <LogoMark size={56} />
+        <LogoMark size={64} />
         <div className="leading-tight">
-          <p className="font-display text-3xl font-semibold text-sand">StudyBuddy</p>
+          <p>
+            <Wordmark className="text-4xl" />
+          </p>
           <p className="text-sm text-taupe">an AI tutor with a memory</p>
         </div>
       </div>
