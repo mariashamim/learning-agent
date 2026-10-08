@@ -58,8 +58,17 @@ revised and re-scored. Only evaluated versions can be shown: the
 highest-scoring one, with its real score and a `passed` flag. A revision that
 fails or can't be evaluated is discarded.
 
-**Valid quiz.** Every lesson has 2-4 questions with exactly 4 options and a
-`correctAnswer` that matches an option. Invalid output is retried once.
+**Valid quiz.** Every lesson has 2-4 scenario-based questions with exactly 4
+options and a `correctAnswer` that matches an option. Invalid output is retried once.
+
+**Interactive activities.** Every new lesson also has 2-5 activities placed
+between its concepts: predict (ask before you tell), scenario, drag-and-drop
+sort, drag-to-order, story, timeline, infographic chart, slider simulation,
+interactive diagram, narrated listen (browser speech) and playable sound (Web
+Audio, music topics only). The model fills one flat schema; `lib/activities.ts`
+validates each activity for its type and drops any that is malformed. Fewer
+than 2 usable activities counts as an invalid lesson (retried once). Activities
+are practice: ungraded and not saved. Progress still comes from the quiz.
 
 **Bounded iteration.** Max 6 agent turns, at most one revision per lesson, one
 retry for malformed output, one retry for transient call failures, 60s per
@@ -76,6 +85,7 @@ Each run rebuilds the agent's context from there.
 
 - `src/lib/harness.ts` — tutor agent loop, tools, fast paths
 - `src/lib/lessonWriter.ts` — quality gate: generate / evaluate / revise
+- `src/lib/activities.ts` — interactive activity schema, writing guide, validation
 - `src/lib/model.ts` — OpenRouter client (structured output, tool calling)
 - `src/lib/progress.ts` — quiz grading and course progression
 - `src/lib/courseView.ts` — client-facing course shape
@@ -94,6 +104,7 @@ Each run rebuilds the agent's context from there.
 - `src/components/app/AppState.tsx` — shared client state: learner, courses, tutor
   requests with background prefetch, quiz saving, bookmarks
 - `src/components/app/AppShell.tsx` — layout: left menu, phone tab bar, overlays
+- `src/components/activities/` — one component per activity type
 - `src/components/`, `src/hooks/` — UI pieces
 
 Bookmarks are stored in the browser (localStorage, per learner ID), matching
@@ -137,7 +148,6 @@ unique(learner_id, topic)
 
 ## What's next (not yet implemented)
 
-- Inline checks between concepts (Brilliant-style), not only an end quiz
 - Spaced-repetition scheduling from recorded mistakes
 - Accounts instead of a per-browser learner ID
 - An eval suite for the agent (fixed topics, expected tool sequences, scores)

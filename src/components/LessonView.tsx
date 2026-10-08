@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Activity } from "./activities/Activity";
 import { CoursePath } from "./CoursePath";
 import { HarnessTrace } from "./HarnessTrace";
 import { QuizQuestion } from "./QuizQuestion";
@@ -38,6 +39,12 @@ export function LessonView({
 }) {
   const { lesson, lessonId, score, status, course, moduleIndex, tutorNote, trace } = view;
   const [answers, setAnswers] = useState<Record<number, { chosen: string; correct: boolean }>>({});
+  const activities = lesson.activities ?? [];
+  const [doneActivities, setDoneActivities] = useState<Set<number>>(() => new Set());
+  const markDone = (i: number) => setDoneActivities((s) => (s.has(i) ? s : new Set(s).add(i)));
+  // Activities sit before the first concept (-1) or after the concept they follow.
+  const activitiesAt = (slot: number) =>
+    activities.map((a, i) => ({ a, i })).filter(({ a }) => (a.afterConcept ?? 0) === slot);
   const [submission, setSubmission] = useState<Submission>({ state: "idle" });
   const answered = Object.keys(answers).length;
   const correctCount = Object.values(answers).filter((a) => a.correct).length;
@@ -87,7 +94,8 @@ export function LessonView({
             </>
           )}
           <span className="uppercase tracking-[0.18em] text-taupe">
-            {lesson.estimatedMinutes} min · {lesson.concepts.length} ideas · {total} questions
+            {lesson.estimatedMinutes} min · {lesson.concepts.length} ideas
+            {activities.length > 0 && ` · ${activities.length} activities`} · {total} questions
           </span>
           {score != null && <ScoreBadge score={score} />}
         </div>
@@ -126,8 +134,27 @@ export function LessonView({
         )}
       </Reveal>
 
+      {activities.length > 0 && (
+        <div className="activity-progress sticky top-16 z-20 mt-6 flex items-center gap-3 rounded-full border border-gold/30 bg-ink/85 px-4 py-2 text-xs text-sand lg:top-4">
+          <span className="font-semibold text-gold">Your session</span>
+          <span className="flex flex-1 gap-1" aria-hidden>
+            {activities.map((_, i) => (
+              <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${doneActivities.has(i) ? "bg-gold" : "bg-sand/15"}`} />
+            ))}
+          </span>
+          <span className="tabular-nums">
+            {doneActivities.size}/{activities.length} activities
+          </span>
+        </div>
+      )}
+
       <div className="mt-10 space-y-6">
-        {lesson.concepts.map((c, i) => (
+        {activitiesAt(-1).map(({ a, i }) => (
+          <Reveal key={`a${i}`} group="concepts" delay={CONCEPT_START} stagger={CONCEPT_STAGGER} duration={DURATION}>
+            <Activity a={a} onDone={() => markDone(i)} />
+          </Reveal>
+        ))}
+        {lesson.concepts.map((c, i) => [
           <Reveal
             key={c.name}
             group="concepts"
@@ -152,8 +179,13 @@ export function LessonView({
                 <span className="font-display text-espresso italic">{c.example}</span>
               </div>
             </section>
-          </Reveal>
-        ))}
+          </Reveal>,
+          ...activitiesAt(i).map(({ a, i: ai }) => (
+            <Reveal key={`a${ai}`} group="concepts" delay={CONCEPT_START + (i + 1) * CONCEPT_STAGGER} stagger={CONCEPT_STAGGER} duration={DURATION}>
+              <Activity a={a} onDone={() => markDone(ai)} />
+            </Reveal>
+          )),
+        ])}
       </div>
 
       {total === 0 && (

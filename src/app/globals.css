@@ -1085,3 +1085,264 @@ html.cursor-visible .cursor-glow {
   0%, 100% { opacity: 0.3; transform: scale(0.7); }
   50% { opacity: 1; transform: scale(1.15); }
 }
+
+/* ======================================================================
+   Interactive lesson activities
+   ====================================================================== */
+.activity-card {
+  box-shadow: 0 20px 50px -30px rgba(0, 0, 0, 0.8);
+  transition: border-color 300ms ease;
+}
+.activity-card[data-done] {
+  border-color: rgba(200, 139, 0, 0.6);
+}
+.activity-glow {
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(circle, rgba(173, 47, 112, 0.25), transparent 70%);
+  pointer-events: none;
+}
+.activity-reveal,
+.activity-feedback,
+.timeline-detail,
+.diagram-panel,
+.sim-outcome,
+.story-beat {
+  animation: activity-in 450ms var(--ease-out-expo) both;
+}
+@keyframes activity-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.activity-done {
+  animation: star-pop 400ms var(--ease-spring);
+}
+.activity-progress {
+  box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.9);
+}
+
+/* choices (predict / scenario) */
+.choice-option {
+  border-color: var(--beige);
+  background: rgba(21, 10, 30, 0.35);
+  color: var(--sand);
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms var(--ease-out-expo);
+}
+.choice-option[data-state="idle"]:not(:disabled):hover {
+  border-color: var(--gold);
+  background: rgba(200, 139, 0, 0.1);
+  transform: translateY(-2px);
+}
+.choice-option[data-state="good"],
+.choice-option[data-state="answer"] {
+  border-color: var(--sage);
+  background: rgba(108, 192, 138, 0.14);
+  color: #c9f0d6;
+}
+.choice-option[data-state="bad"] {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  animation: shake 250ms ease-in-out;
+}
+.choice-option:disabled[data-state="idle"] {
+  opacity: 0.5;
+}
+
+/* sort */
+.sort-chip {
+  border-color: var(--beige);
+  background: var(--paper);
+  color: var(--sand);
+  cursor: grab;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms var(--ease-spring);
+}
+.sort-chip:hover {
+  border-color: var(--gold);
+}
+.sort-chip[data-state="selected"] {
+  border-color: var(--gold);
+  background: rgba(200, 139, 0, 0.18);
+  transform: scale(1.04);
+}
+.sort-chip[data-state="good"] {
+  border-color: var(--sage);
+  background: rgba(108, 192, 138, 0.16);
+}
+.sort-chip[data-state="bad"] {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.14);
+  animation: shake 250ms ease-in-out;
+}
+.sort-bucket {
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+.sort-ghost {
+  transform: rotate(-3deg) scale(1.05);
+  box-shadow: 0 0 30px -6px rgba(200, 139, 0, 0.8);
+}
+
+/* order */
+.order-row {
+  border-color: var(--beige);
+  background: rgba(21, 10, 30, 0.35);
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+.order-row[data-state="dragging"] {
+  border-color: var(--gold);
+  background: rgba(200, 139, 0, 0.12);
+  transform: scale(1.02);
+}
+.order-row[data-state="good"] {
+  border-color: var(--sage);
+  background: rgba(108, 192, 138, 0.12);
+}
+.order-row[data-state="bad"] {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* timeline */
+.timeline-fill {
+  transition: width 700ms var(--ease-out-expo);
+  box-shadow: 0 0 12px rgba(200, 139, 0, 0.6);
+}
+.timeline-dot {
+  position: relative;
+  z-index: 1;
+  border-color: var(--beige);
+  background: var(--paper);
+  transition: transform 300ms var(--ease-spring), background-color 300ms ease, border-color 300ms ease;
+}
+.timeline-dot[data-state="seen"] {
+  border-color: var(--gold);
+  background: rgba(200, 139, 0, 0.35);
+}
+.timeline-dot[data-state="active"] {
+  border-color: var(--gold);
+  background: var(--gold);
+  transform: scale(1.2);
+  box-shadow: 0 0 20px rgba(200, 139, 0, 0.8);
+}
+
+/* chart */
+.chart-bar {
+  transition: width 1000ms var(--ease-out-expo);
+}
+
+/* simulation */
+.sim-needle {
+  transition: transform 300ms var(--ease-spring);
+}
+.sim-segment {
+  transition: stroke-width 300ms ease, opacity 300ms ease;
+}
+.sim-range {
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--violet), var(--magenta), var(--gold));
+  outline: none;
+}
+.sim-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sand);
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 14px rgba(200, 139, 0, 0.9);
+  cursor: grab;
+}
+.sim-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sand);
+  border: 3px solid var(--gold);
+  cursor: grab;
+}
+
+/* diagram */
+.diagram-node circle {
+  fill: var(--paper);
+  stroke: var(--violet);
+  stroke-width: 2;
+  transition: fill 250ms ease, stroke 250ms ease;
+}
+.diagram-node div {
+  color: var(--sand);
+}
+.diagram-node {
+  transition: transform 300ms var(--ease-spring);
+}
+.diagram-node:hover {
+  transform: scale(1.08);
+}
+.diagram-node[data-state="seen"] circle {
+  stroke: var(--gold);
+}
+.diagram-node[data-state="near"] circle {
+  fill: rgba(173, 47, 112, 0.35);
+  stroke: var(--magenta);
+}
+.diagram-node[data-state="active"] circle {
+  fill: var(--gold);
+  stroke: var(--sand);
+}
+.diagram-node[data-state="active"] div {
+  color: var(--ink);
+}
+.diagram-node[data-state="active"] {
+  transform: scale(1.12);
+}
+.diagram-edge {
+  transition: opacity 300ms ease;
+}
+.diagram-label {
+  paint-order: stroke;
+  stroke: var(--ink);
+  stroke-width: 4px;
+}
+
+/* listen */
+.listen-wave span {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--gold);
+  opacity: 0.35;
+  transform: scaleY(0.25);
+  transform-origin: center;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.listen-wave[data-playing] span {
+  opacity: 0.9;
+  animation: wave 900ms ease-in-out infinite;
+}
+
+/* sound: mini piano */
+.piano-white {
+  background: linear-gradient(#f3e6d0, #e1b983);
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.piano-black {
+  z-index: 1;
+  background: linear-gradient(#2a1539, #150a1e);
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.piano-white[data-lit] {
+  background: linear-gradient(#ffe2a6, #c88b00);
+  box-shadow: inset 0 -8px 16px rgba(173, 47, 112, 0.5);
+}
+.piano-black[data-lit] {
+  background: linear-gradient(#ad2f70, #7a5498);
+  box-shadow: 0 0 14px rgba(173, 47, 112, 0.9);
+}
+.sound-clip {
+  transition: border-color 200ms ease, transform 200ms var(--ease-out-expo);
+}
+.sound-clip:active {
+  transform: scale(0.98);
+}

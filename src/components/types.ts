@@ -1,3 +1,5 @@
+import type { Activity as ActivityData } from "@/lib/activities";
+
 export type Question = {
   question: string;
   options: string[];
@@ -10,6 +12,8 @@ export type Lesson = {
   objective: string;
   estimatedMinutes: number;
   concepts: { name: string; explanation: string; example: string }[];
+  /** Interactive activities; absent on lessons written before they existed. */
+  activities?: ActivityData[];
   questions: Question[];
 };
 
