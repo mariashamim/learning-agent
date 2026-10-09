@@ -1,0 +1,133 @@
+"use client";
+
+import { useState } from "react";
+import type { Block } from "@/lib/lessonBlocks";
+import { BlockFrame, Paragraphs } from "./BlockFrame";
+import { rich } from "./rich";
+
+type Of<K extends Block["kind"]> = Extract<Block, { kind: K }>;
+
+/** A worked example, one step at a time: think about the next move, then reveal it. */
+export function WorkedBlock({ b, onDone }: { b: Of<"worked">; onDone: () => void }) {
+  const [shown, setShown] = useState(0);
+  const done = shown === b.steps.length;
+
+  function next() {
+    const n = Math.min(b.steps.length, shown + 1);
+    setShown(n);
+    if (n === b.steps.length) onDone();
+  }
+
+  return (
+    <BlockFrame kind="worked" icon="∑" label="Worked example" title={b.heading} done={done} takeaway={b.answer ? rich(b.answer) : undefined} takeawayLabel="Result">
+      <div className="rounded-2xl border border-beige bg-ink/40 p-4 text-[15px] leading-relaxed text-sand">
+        <Paragraphs text={b.problem} />
+      </div>
+      <ol className="mt-4 space-y-3">
+        {b.steps.slice(0, shown).map((s, i) => (
+          <li key={i} className="step-reveal flex gap-3">
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-semibold text-gold">{i + 1}</span>
+            <div className="min-w-0 flex-1">
+              {s.title && <p className="text-sm font-semibold text-sand">{s.title}</p>}
+              <p className="text-[15px] leading-relaxed whitespace-pre-line text-sand/90">{rich(s.text)}</p>
+              {s.why && <p className="mt-1 text-sm leading-relaxed text-taupe">Why: {rich(s.why)}</p>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {!done && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={next} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold">
+            {shown === 0 ? "Show the first step" : `Show step ${shown + 1}`}
+          </button>
+          <span className="text-xs text-taupe">
+            {shown === 0 ? "Try the first move yourself before you look." : "What would you do next? Decide, then check."}
+          </span>
+        </div>
+      )}
+    </BlockFrame>
+  );
+}
+
+const MIN_REFLECTION = 20;
+
+/** An open question in the learner's own words, then a model answer to compare against. Nothing is saved. */
+export function ReflectBlock({ b, onDone }: { b: Of<"reflect">; onDone: () => void }) {
+  const [answer, setAnswer] = useState("");
+  const [compared, setCompared] = useState(false);
+  const ready = answer.trim().length >= MIN_REFLECTION;
+
+  return (
+    <BlockFrame kind="reflect" icon="✍" label="In your own words" title={b.heading} prompt={b.prompt} done={compared}>
+      <textarea
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        readOnly={compared}
+        rows={4}
+        aria-label={b.prompt}
+        placeholder="Write a few sentences. Only you will see this."
+        className="w-full resize-y rounded-2xl border border-beige bg-ink/40 p-4 text-[15px] leading-relaxed text-sand placeholder:text-taupe/70 focus:border-gold/60 focus:outline-none"
+      />
+      {!compared ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => {
+              setCompared(true);
+              onDone();
+            }}
+            className="btn-primary rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          >
+            Compare with a model answer
+          </button>
+          <span className="text-xs text-taupe">
+            {ready ? "Not saved or graded; it's for your thinking." : `Write at least ${MIN_REFLECTION} characters first.`}
+          </span>
+        </div>
+      ) : (
+        <div className="step-reveal mt-4 rounded-2xl border border-gold/30 bg-gold/10 px-4 py-3">
+          <p className="text-[10px] font-semibold tracking-[0.18em] text-gold uppercase">A model answer</p>
+          <p className="mt-1 text-sm leading-relaxed text-sand">{rich(b.model)}</p>
+          <p className="mt-2 text-xs text-taupe">What did you include that it doesn&rsquo;t, and what did it notice that you didn&rsquo;t?</p>
+        </div>
+      )}
+    </BlockFrame>
+  );
+}
+
+/** A Socratic exchange that unfolds a line at a time, so the learner can answer each question in their head first. */
+export function DialogueBlock({ b, onDone }: { b: Of<"dialogue">; onDone: () => void }) {
+  const [shown, setShown] = useState(1);
+  const first = b.turns[0]?.speaker;
+  const done = shown >= b.turns.length;
+
+  function next() {
+    const n = Math.min(b.turns.length, shown + 1);
+    setShown(n);
+    if (n === b.turns.length) onDone();
+  }
+
+  return (
+    <BlockFrame kind="dialogue" icon="❞" label="Dialogue" title={b.heading} done={done}>
+      <div className="space-y-3" aria-live="polite">
+        {b.turns.slice(0, shown).map((t, i) => (
+          <div key={i} className={`step-reveal flex ${t.speaker === first ? "justify-start" : "justify-end"}`}>
+            <div className={`dialogue-bubble max-w-[85%] rounded-2xl px-4 py-3 ${t.speaker === first ? "rounded-tl-sm bg-violet/30" : "rounded-tr-sm bg-gold/15"}`}>
+              <p className="text-[10px] font-semibold tracking-[0.16em] text-gold uppercase">{t.speaker}</p>
+              <p className="mt-0.5 text-[15px] leading-relaxed text-sand">{rich(t.text)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {!done && (
+        <div className="mt-4 flex items-center gap-3">
+          <button type="button" onClick={next} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold">
+            Continue
+          </button>
+          {b.turns[shown - 1]?.text.trim().endsWith("?") && <span className="text-xs text-taupe">Answer it yourself first.</span>}
+        </div>
+      )}
+    </BlockFrame>
+  );
+}

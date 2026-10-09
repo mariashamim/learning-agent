@@ -4,45 +4,11 @@
 // what to write and why, but cannot skip these checks.
 
 import { z } from "zod";
-import { ACTIVITY_GUIDE, activityJsonSchema, normalizeActivity, type Activity } from "./activities";
+import type { Lesson } from "./lessonBlocks";
+import { LESSON_GUIDE, lessonJsonSchema, lintStructure, normalizeLesson, toModelFormat, type NormalizeReport } from "./lessonDesign";
 import { callStructured, type Deadline } from "./model";
 
-const LessonBaseSchema = z.object({
-  title: z.string(),
-  objective: z.string(),
-  estimatedMinutes: z.number(),
-  concepts: z.array(
-    z.object({
-      name: z.string(),
-      explanation: z.string(),
-      example: z.string(),
-    })
-  ),
-  // Every lesson must carry a usable quiz: 2-4 questions, 4 options each,
-  // and the correct answer must be one of the options.
-  questions: z
-    .array(
-      z
-        .object({
-          question: z.string(),
-          options: z.array(z.string()).length(4),
-          correctAnswer: z.string(),
-          explanation: z.string(),
-        })
-        .refine((q) => q.options.includes(q.correctAnswer), {
-          message: "correctAnswer must exactly match one of the options",
-        })
-    )
-    .min(2)
-    .max(4),
-});
-
-/** Lessons written before activities existed have none; new ones have 2-5. */
-export type Lesson = z.infer<typeof LessonBaseSchema> & { activities?: Activity[] };
-
-// At least this many valid activities, or the lesson is rewritten (bounded).
-const MIN_ACTIVITIES = 2;
-const MAX_ACTIVITIES = 5;
+export type { Lesson } from "./lessonBlocks";
 
 const EvaluationSchema = z.object({
   score: z.number(),
@@ -64,47 +30,10 @@ export type LessonBrief = {
   module: { title: string; goal: string };
   /** Titles of the modules before this one, for continuity. */
   previousModules: string[];
+  /** Teaching approaches earlier modules used, so a course doesn't repeat one shape. */
+  previousApproaches?: string[];
   /** The agent's instructions, e.g. what to recap given past mistakes. */
   focus: string;
-};
-
-const lessonJsonSchema = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    objective: { type: "string" },
-    estimatedMinutes: { type: "number" },
-    concepts: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          explanation: { type: "string" },
-          example: { type: "string" },
-        },
-        required: ["name", "explanation", "example"],
-        additionalProperties: false,
-      },
-    },
-    activities: { type: "array", items: activityJsonSchema },
-    questions: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          question: { type: "string" },
-          options: { type: "array", items: { type: "string" } },
-          correctAnswer: { type: "string" },
-          explanation: { type: "string" },
-        },
-        required: ["question", "options", "correctAnswer", "explanation"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["title", "objective", "estimatedMinutes", "concepts", "activities", "questions"],
-  additionalProperties: false,
 };
 
 const evaluationJsonSchema = {
@@ -119,20 +48,10 @@ const evaluationJsonSchema = {
   additionalProperties: false,
 };
 
-// Shared by generate and revise so a first draft gets the same quiz rules.
-const LESSON_REQUIREMENTS = `REQUIREMENTS:
-- 2-3 concepts, each with a clear, vivid explanation (3-5 sentences) and a concrete real-world example
-- EXACTLY 3 multiple-choice questions (never fewer than 2, never more than 4) for the final check
-- Each question is SCENARIO-BASED: a short realistic situation that asks the learner to apply the
-  idea, never a definition to recall
-- Each question must have EXACTLY 4 options
-- The correctAnswer field must be an EXACT string match of one of the options
-- Each question needs a 1-2 sentence explanation of why the answer is correct
-- Total lesson time: 5-10 minutes
+// Shared by generate and revise so a first draft gets the same rules.
+const LESSON_REQUIREMENTS = `${LESSON_GUIDE}
 
-${ACTIVITY_GUIDE}
-
-Return only JSON matching the schema. The questions and activities arrays MUST NOT be empty.`;
+Return only JSON matching the schema. The blocks and questions arrays MUST NOT be empty.`;
 
 function describeBrief(b: LessonBrief) {
   const before = b.previousModules.length
@@ -142,7 +61,7 @@ function describeBrief(b: LessonBrief) {
 Module ${b.moduleIndex + 1} of ${b.moduleCount}: ${b.module.title}
 Module goal: ${b.module.goal}
 ${before}
-Tutor's instructions for this module: ${b.focus || "none"}`;
+${b.previousApproaches?.length ? `Approaches used in earlier modules: ${b.previousApproaches.join(", ")}.\n` : ""}Tutor's instructions for this module: ${b.focus || "none"}`;
 }
 
 // Reasoning effort, measured on DeepSeek V4.1 Flash (see HARNESS.md):
@@ -152,59 +71,36 @@ Tutor's instructions for this module: ${b.focus || "none"}`;
 const WRITER_OPTIONS = { reasoningEffort: "medium" } as const;
 const EVALUATOR_OPTIONS = { reasoningEffort: "low" } as const;
 
-// The model occasionally ignores the quiz rules. Retry once on a validation
+// The model occasionally ignores the rules. Retry once on a validation
 // failure (bounded), then give up with a clear error.
 const MAX_LESSON_ATTEMPTS = 2;
 
-type Written = { lesson: Lesson; activities: number; dropped: number };
+type Written = { lesson: Lesson; report: Record<string, unknown> };
 
-/**
- * Validates a raw lesson: the base fields strictly; activities one by one.
- * An activity that isn't usable for its type is dropped (never shown), but a
- * lesson left with fewer than MIN_ACTIVITIES counts as invalid and is retried.
- */
-function parseLesson(raw: unknown): { ok: true; value: Written } | { ok: false; error: string } {
-  const base = LessonBaseSchema.safeParse(raw);
-  if (!base.success) return { ok: false, error: base.error.message };
-  const rawActivities = Array.isArray((raw as { activities?: unknown }).activities)
-    ? ((raw as { activities: unknown[] }).activities)
-    : [];
-  const activities = rawActivities
-    .map((a) => normalizeActivity(a, base.data.concepts.length))
-    .filter((a): a is Activity => a !== null)
-    .slice(0, MAX_ACTIVITIES);
-  if (activities.length < MIN_ACTIVITIES) {
-    return { ok: false, error: `only ${activities.length} usable activities (need ${MIN_ACTIVITIES})` };
-  }
-  return {
-    ok: true,
-    value: {
-      lesson: { ...base.data, activities },
-      activities: activities.length,
-      dropped: rawActivities.length - activities.length,
-    },
-  };
-}
+/** What the trace records about a written lesson: its shape and what validation dropped. */
+const describeWritten = (lesson: Lesson, r: NormalizeReport) => ({
+  approach: lesson.approach,
+  blocks: lesson.blocks?.map((b) => b.kind).join(" > "),
+  ...r,
+});
 
 async function requestValidLesson(request: () => Promise<unknown>): Promise<Written> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_LESSON_ATTEMPTS; attempt++) {
-    const result = parseLesson(await request());
-    if (result.ok) return result.value;
+    const result = normalizeLesson(await request());
+    if (result.ok) return { lesson: result.lesson, report: describeWritten(result.lesson, result.report) };
     lastError = result.error;
   }
-  throw new Error(
-    `Model did not return a valid lesson with a quiz after ${MAX_LESSON_ATTEMPTS} attempts: ${lastError}`
-  );
+  throw new Error(`Model did not return a valid lesson after ${MAX_LESSON_ATTEMPTS} attempts: ${lastError}`);
 }
 
 function generateLesson(brief: LessonBrief, deadline: Deadline): Promise<Written> {
   return requestValidLesson(() =>
     callStructured(
       `You are an expert instructional designer writing one module of an interactive course,
-in the spirit of Brilliant: the learner DOES things, not just reads. Teach this module's goal
-with concrete examples and well-chosen activities. Build on earlier modules without repeating
-them, and don't teach later modules' material. Be creative and specific to this topic.
+in the spirit of Brilliant: the learner DOES things, not just reads. Design the lesson the way a
+great teacher of THIS subject would teach THIS idea: choose the approach first, then the sequence.
+Build on earlier modules without repeating them, and don't teach later modules' material.
 
 ${LESSON_REQUIREMENTS}`,
       `${describeBrief(brief)}\n\nWrite this module's lesson.`,
@@ -216,14 +112,27 @@ ${LESSON_REQUIREMENTS}`,
 }
 
 async function evaluateLesson(brief: LessonBrief, lesson: Lesson, deadline: Deadline): Promise<Evaluation> {
+  // Structural problems code can detect are handed to the evaluator as facts.
+  const issues = lintStructure(lesson);
   const result = await callStructured(
     `You are a strict educational quality evaluator. Evaluate the lesson on a 0-10 scale.
 Use the FULL range: 3 = poor, 5 = mediocre, 7 = good, 8-9 = excellent, 10 = perfect.
-Evaluate for: accuracy (including every number and fact in the activities), clarity, fit to the
-module goal, difficulty, examples, interactivity (are the activities varied, well placed, specific
-to the topic, and do they make the learner think rather than just click?), scenario-based quiz
-questions, and time fit (5-10 min). Be critical, but score honestly. Return only JSON.`,
-    `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}`,
+The lesson is an ordered list of blocks; "activity" and "check" blocks point (by ref) into the
+activities and questions arrays. Evaluate for:
+- accuracy of every fact and number; for code, the stated output, bug fix and trace must be exactly
+  what the code really does
+- fit: does the chosen approach suit this subject and idea? Would a great teacher of it teach it this way?
+- structure: a coherent path from exploration to understanding to application, not a generic
+  template; knowledge checks right after the ideas they test, getting harder; no filler
+- interactivity: hands-on blocks that make the learner think, varied, never decorative
+- checks: scenario-based questions, hints that help without giving the answer away, and an
+  alternative explanation that is genuinely different
+- clarity, fit to the module goal, and time (5-10 min).
+Code-detected structural issues are listed with the lesson; each one should lower the score.
+Be critical, but score honestly. Return only JSON.`,
+    `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}\n\nCode-detected structural issues:${
+      issues.length ? issues.map((i) => `\n- ${i}`).join("") : " none"
+    }`,
     evaluationJsonSchema,
     deadline,
     EVALUATOR_OPTIONS
@@ -240,10 +149,11 @@ function reviseLesson(
   return requestValidLesson(() =>
     callStructured(
       `You are an expert instructional designer. Revise the lesson to fix the evaluator's feedback.
-Its activities are shown in a readable form; write them back in the schema's flat activity format.
+It is shown in the same format you write: keep what works, fix what the feedback names, and
+return the whole lesson.
 
 ${LESSON_REQUIREMENTS}`,
-      `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(lesson, null, 2)}\n\nFeedback:\n${JSON.stringify(
+      `${describeBrief(brief)}\n\nLesson:\n${JSON.stringify(toModelFormat(lesson), null, 2)}\n\nFeedback:\n${JSON.stringify(
         evaluation,
         null,
         2
@@ -278,8 +188,7 @@ export async function writeLesson(
     step: "lesson.generate",
     module: brief.moduleIndex + 1,
     ms: Date.now() - t,
-    activities: first.activities,
-    droppedActivities: first.dropped,
+    ...first.report,
   });
 
   let best: { lesson: Lesson; score: number } | null = null;
@@ -302,6 +211,7 @@ export async function writeLesson(
       score: evaluation.score,
       ms: Date.now() - t,
       problems: evaluation.problems,
+      structureIssues: lintStructure(candidate),
     });
     if (!best || evaluation.score > best.score) {
       best = { lesson: candidate, score: evaluation.score };
@@ -321,8 +231,7 @@ export async function writeLesson(
         step: "lesson.revise",
         iteration,
         ms: Date.now() - t,
-        activities: revised.activities,
-        droppedActivities: revised.dropped,
+        ...revised.report,
       });
     } catch (e) {
       trace.push({ step: "lesson.revise_failed", iteration, error: errorMessage(e) });

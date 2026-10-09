@@ -54,7 +54,6 @@ export const activityJsonSchema = {
   type: "object",
   properties: {
     type: { type: "string", enum: [...ACTIVITY_TYPES] },
-    afterConcept: { type: "integer" },
     title: str,
     prompt: str,
     reveal: str,
@@ -106,7 +105,6 @@ export const activityJsonSchema = {
   },
   required: [
     "type",
-    "afterConcept",
     "title",
     "prompt",
     "reveal",
@@ -122,17 +120,17 @@ export const activityJsonSchema = {
   additionalProperties: false,
 };
 
-export const ACTIVITY_GUIDE = `INTERACTIVE ACTIVITIES (the heart of the lesson; no plain flashcards):
-Write 3-5 activities using at least 3 DIFFERENT types, chosen to fit THIS topic.
-Every activity has: type, afterConcept, title, prompt, reveal, and the fields its type uses.
+// Placement is decided by the lesson's blocks (see lessonBlocks.ts), so this
+// guide only says how to fill each type. `afterConcept` survives on lessons
+// saved before blocks existed, where it still places the activity.
+export const ACTIVITY_GUIDE = `Every activity has: type, title, prompt, reveal, and the fields its type uses.
 Leave unused fields empty: "" for strings, [] for arrays, 0 for numbers, and
 slider = {"label":"","min":0,"max":0,"step":0,"unit":"","initial":0} unless it's a simulation.
-afterConcept: -1 = before the first concept, 0 = after concept 1, 1 = after concept 2, and so on.
 reveal: the 1-2 sentence takeaway shown after the learner interacts.
 
-- predict (ASK BEFORE YOU TELL): put one at afterConcept -1 to open the lesson. prompt = a question
-  the learner can't quite answer yet; options = 3-4 choices with EXACTLY one correct=true; feedback = why
-  each choice is right or wrong; reveal = the surprising insight the next concept explains.
+- predict (ask before you tell): prompt = a question the learner can't quite answer yet; options =
+  3-4 choices with EXACTLY one correct=true; feedback = why each choice is right or wrong; reveal =
+  the surprising insight. Use it only where a prediction genuinely sets up what comes next.
 - scenario: prompt = a realistic situation (2-3 sentences, second person); options = 3-4 things you
   could do; correct=true for the best one; feedback = what happens next if you choose it.
 - sort (drag and drop into groups): buckets = 2-3 short category names; items = 4-8 with text and

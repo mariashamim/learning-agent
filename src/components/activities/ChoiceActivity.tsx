@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Activity } from "@/lib/activities";
 import { ActivityFrame } from "./ActivityFrame";
+import { rich } from "../lesson/rich";
 
 type ChoiceActivityData = Extract<Activity, { type: "predict" | "scenario" }>;
 
@@ -39,7 +40,7 @@ export function ChoiceActivity({ a, onDone }: { a: ChoiceActivityData; onDone: (
               className="choice-option rounded-2xl border px-4 py-3 text-left text-sm leading-snug"
             >
               <span className="mr-2 font-semibold text-gold">{String.fromCharCode(65 + i)}</span>
-              {o.text}
+              {rich(o.text)}
               {chosen && <span className="ml-1">{o.correct ? " ✓" : " ✗"}</span>}
             </button>
           );
@@ -56,7 +57,7 @@ export function ChoiceActivity({ a, onDone }: { a: ChoiceActivityData; onDone: (
                 ? "Best move"
                 : "What happens next"}
           </p>
-          <p className="mt-1 text-sm leading-relaxed text-sand/90">{a.options[last].feedback}</p>
+          <p className="mt-1 text-sm leading-relaxed text-sand/90">{rich(a.options[last].feedback)}</p>
           {!isPredict && picked.length < a.options.length && (
             <p className="mt-2 text-xs text-taupe">Curious? Try another choice to see where it leads.</p>
           )}

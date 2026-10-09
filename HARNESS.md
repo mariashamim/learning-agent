@@ -185,3 +185,47 @@ model problem:
 - deepset, [Harness engineering: how to build reliable AI agents](https://www.deepset.ai/blog/harness-engineering).
 - Databricks, [What is an AI agent harness?](https://www.databricks.com/blog/ai-harness)
 - Arize, [Harness engineering](https://arize.com/resources/harness-engineering/).
+
+## Designed lessons instead of one template
+
+Every lesson used to have the same shape: a prediction, two or three concept
+cards, activities between them, and a quiz at the end. An audit found the
+shape was enforced in five places at once: the prompt ("2-3 concepts",
+"questions for the final check"), the activity guide ("put a predict at
+afterConcept -1 to open the lesson"), the data model (concepts + activities
+pinned to concepts + questions), the renderer (concepts, then the quiz), and
+grading (the quiz needed every answer, so it lived in one place). Changing
+only the prompt would not have helped: the renderer and schema still forced
+the order.
+
+The fix was a new lesson model: an ordered list of typed blocks, plus a
+teaching approach. The graded questions stay where grading expects them; a
+`check` block just places each one inline. Old lessons are converted to
+blocks when they're shown, so nothing saved had to change.
+
+What the harness does:
+
+- **Validate pieces, not the whole.** Each block, activity and question is
+  checked on its own; a broken one is dropped and references are remapped.
+  Only a lesson missing the essentials is retried.
+- **Lint, then evaluate.** Code detects structural problems (all checks at
+  the end, three explanations in a row, the old template) and gives them to
+  the evaluator as facts, so they lower the score and drive the revision.
+- **Revise in the writer's own format.** The first version showed the
+  reviser the stored lesson and asked for the flat model format back; 2 of 2
+  revisions in a sample run lost activities in that translation. Now the
+  reviser sees exactly the format it writes. A test checks that every sample
+  lesson round-trips unchanged.
+
+Measured on sample modules (science, programming, history, strategy,
+philosophy, music) with DeepSeek V4.1 Flash:
+
+| Run | Approaches chosen | Notes |
+| --- | --- | --- |
+| First prompt | discovery ×3, mystery | Varied openings, but every lesson ended reflect → summary, all had a worked example and 3 checks |
+| Approach "moves" added | discovery ×2, mystery, misconception ×2, compare | Openings: experiment, explanation, code prediction, stated misconception, playable chords; endings vary; summaries only where useful |
+
+The programming module reads real code (predict the output, a line-by-line
+trace with variable state, a bug to fix); the history module opens on a
+puzzle and resolves it; the music module plays chords. Lesson writing takes
+about 30-50s, close to before.

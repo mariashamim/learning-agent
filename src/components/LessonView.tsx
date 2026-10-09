@@ -1,20 +1,18 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Activity } from "./activities/Activity";
+import { APPROACHES, isInteractive, lessonBlocks } from "@/lib/lessonBlocks";
 import { CoursePath } from "./CoursePath";
 import { HarnessTrace } from "./HarnessTrace";
-import { QuizQuestion } from "./QuizQuestion";
+import { LessonBlock } from "./lesson/LessonBlock";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
 import type { Answer, Course, PrefetchState, QuizResult, View } from "./types";
 
-// Entrance timeline (ms): header → concepts (120ms apart) → quiz heading →
-// quiz cards (80ms apart). About one second for a typical lesson.
+// Entrance timing (ms): the header, then each block as it scrolls into view.
 const PASS_SCORE = 8;
-const CONCEPT_START = 120;
-const CONCEPT_STAGGER = 120;
-const QUIZ_STAGGER = 80;
+const BLOCK_START = 120;
+const BLOCK_STAGGER = 90;
 const DURATION = 400;
 
 type Submission =
@@ -22,6 +20,10 @@ type Submission =
   | { state: "saving" }
   | { state: "done"; result: QuizResult }
   | { state: "error"; message: string };
+
+/** "Mystery first: open with…" → "Mystery first". */
+const approachLabel = (key?: string) =>
+  key && key in APPROACHES ? APPROACHES[key as keyof typeof APPROACHES].split(":")[0] : null;
 
 export function LessonView({
   view,
@@ -38,18 +40,21 @@ export function LessonView({
   onOpenModule: (course: Course, moduleIndex: number) => void;
 }) {
   const { lesson, lessonId, score, status, course, moduleIndex, tutorNote, trace } = view;
+  // The ordered teaching blocks; older lessons are rebuilt in their original order.
+  const blocks = lessonBlocks(lesson);
   const [answers, setAnswers] = useState<Record<number, { chosen: string; correct: boolean }>>({});
-  const activities = lesson.activities ?? [];
-  const [doneActivities, setDoneActivities] = useState<Set<number>>(() => new Set());
-  const markDone = (i: number) => setDoneActivities((s) => (s.has(i) ? s : new Set(s).add(i)));
-  // Activities sit before the first concept (-1) or after the concept they follow.
-  const activitiesAt = (slot: number) =>
-    activities.map((a, i) => ({ a, i })).filter(({ a }) => (a.afterConcept ?? 0) === slot);
+  const [doneBlocks, setDoneBlocks] = useState<Set<number>>(() => new Set());
+  const markDone = (i: number) => setDoneBlocks((s) => (s.has(i) ? s : new Set(s).add(i)));
   const [submission, setSubmission] = useState<Submission>({ state: "idle" });
+
   const answered = Object.keys(answers).length;
   const correctCount = Object.values(answers).filter((a) => a.correct).length;
   const total = lesson.questions.length;
-  const quizHeadingAt = CONCEPT_START + lesson.concepts.length * CONCEPT_STAGGER;
+  const checkOrder = blocks.flatMap((b) => (b.kind === "check" ? [b.ref] : []));
+  const practice = blocks.map((b, i) => ({ b, i })).filter(({ b }) => isInteractive(b) && b.kind !== "check");
+  const sessionSteps = practice.length + total;
+  const sessionDone = practice.filter(({ i }) => doneBlocks.has(i)).length + answered;
+  const approach = approachLabel(lesson.approach);
   const currentMod = course && moduleIndex !== null ? course.modules[moduleIndex] : null;
   // After the quiz is saved, show the server's updated course (e.g. this module ticked off).
   const pathCourse =
@@ -69,11 +74,15 @@ export function LessonView({
     }
   }
 
+  // Checks sit through the lesson; the module is saved once the last one is answered.
   function handleAnswer(i: number, chosen: string, correct: boolean) {
+    if (answers[i]) return;
     const next = { ...answers, [i]: { chosen, correct } };
     setAnswers(next);
     if (Object.keys(next).length === total) submit(next);
   }
+
+  const unanswered = checkOrder.filter((q) => !answers[q]);
 
   return (
     <article id="lesson" className="mt-16 scroll-mt-24">
@@ -94,8 +103,7 @@ export function LessonView({
             </>
           )}
           <span className="uppercase tracking-[0.18em] text-taupe">
-            {lesson.estimatedMinutes} min · {lesson.concepts.length} ideas
-            {activities.length > 0 && ` · ${activities.length} activities`} · {total} questions
+            {lesson.estimatedMinutes} min{total > 0 && ` · ${total} ${total === 1 ? "check" : "checks"}`}
           </span>
           {score != null && <ScoreBadge score={score} />}
         </div>
@@ -105,6 +113,14 @@ export function LessonView({
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-coffee sm:text-lg">
           {lesson.objective}
         </p>
+        {approach && (
+          <p className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-taupe">
+            <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-0.5 text-xs font-semibold text-gold">
+              {approach}
+            </span>
+            {lesson.approachReason && <span className="leading-relaxed">{lesson.approachReason}</span>}
+          </p>
+        )}
 
         {tutorNote && (
           <div className="mt-6 flex gap-3 rounded-2xl border border-beige bg-paper px-5 py-4">
@@ -118,7 +134,7 @@ export function LessonView({
           </div>
         )}
         {status.resumed && (
-          <Notice>Picking up where you left off: you haven&rsquo;t finished this module&rsquo;s quiz yet.</Notice>
+          <Notice>Picking up where you left off: you haven&rsquo;t finished this module&rsquo;s checks yet.</Notice>
         )}
         {status.passed === false && score != null && (
           <Notice>
@@ -134,58 +150,37 @@ export function LessonView({
         )}
       </Reveal>
 
-      {activities.length > 0 && (
+      {sessionSteps > 0 && (
         <div className="activity-progress sticky top-16 z-20 mt-6 flex items-center gap-3 rounded-full border border-gold/30 bg-ink/85 px-4 py-2 text-xs text-sand lg:top-4">
           <span className="font-semibold text-gold">Your session</span>
           <span className="flex flex-1 gap-1" aria-hidden>
-            {activities.map((_, i) => (
-              <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${doneActivities.has(i) ? "bg-gold" : "bg-sand/15"}`} />
-            ))}
+            {blocks.map((b, i) =>
+              b.kind === "check" ? (
+                <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${answers[b.ref] ? (answers[b.ref].correct ? "bg-sage" : "bg-red-400") : "bg-sand/15 ring-1 ring-gold/30"}`} />
+              ) : isInteractive(b) ? (
+                <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${doneBlocks.has(i) ? "bg-gold" : "bg-sand/15"}`} />
+              ) : null
+            )}
           </span>
           <span className="tabular-nums">
-            {doneActivities.size}/{activities.length} activities
+            {sessionDone}/{sessionSteps}
           </span>
         </div>
       )}
 
       <div className="mt-10 space-y-6">
-        {activitiesAt(-1).map(({ a, i }) => (
-          <Reveal key={`a${i}`} group="concepts" delay={CONCEPT_START} stagger={CONCEPT_STAGGER} duration={DURATION}>
-            <Activity a={a} onDone={() => markDone(i)} />
+        {blocks.map((b, i) => (
+          <Reveal key={i} group="blocks" delay={BLOCK_START} stagger={BLOCK_STAGGER} duration={DURATION}>
+            <LessonBlock
+              block={b}
+              lesson={lesson}
+              checkNumber={b.kind === "check" ? checkOrder.indexOf(b.ref) + 1 : 0}
+              checkCount={checkOrder.length}
+              onDone={() => markDone(i)}
+              onAnswer={handleAnswer}
+            />
           </Reveal>
         ))}
-        {lesson.concepts.map((c, i) => [
-          <Reveal
-            key={c.name}
-            group="concepts"
-            delay={CONCEPT_START + i * CONCEPT_STAGGER}
-            stagger={CONCEPT_STAGGER}
-            duration={DURATION}
-          >
-            <section className="concept-card rounded-3xl border border-beige/80 bg-paper p-6 sm:p-8">
-              <div className="flex items-baseline gap-4">
-                <span className="font-display text-sm text-taupe tabular-nums italic">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <h3 className="font-display text-xl font-medium text-espresso sm:text-2xl">{c.name}</h3>
-              </div>
-              <p className="mt-4 text-[15.5px] leading-[1.75] text-espresso/90 sm:pl-9">
-                {c.explanation}
-              </p>
-              <div className="mt-5 rounded-2xl border-l-[3px] border-gold/70 bg-gold/10 px-5 py-4 text-[15px] leading-relaxed sm:ml-9">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-coffee">
-                  For example
-                </span>
-                <span className="font-display text-espresso italic">{c.example}</span>
-              </div>
-            </section>
-          </Reveal>,
-          ...activitiesAt(i).map(({ a, i: ai }) => (
-            <Reveal key={`a${ai}`} group="concepts" delay={CONCEPT_START + (i + 1) * CONCEPT_STAGGER} stagger={CONCEPT_STAGGER} duration={DURATION}>
-              <Activity a={a} onDone={() => markDone(ai)} />
-            </Reveal>
-          )),
-        ])}
       </div>
 
       {total === 0 && (
@@ -196,33 +191,36 @@ export function LessonView({
       )}
 
       {total > 0 && (
-        <section className="mt-16">
-          <Reveal delay={quizHeadingAt} duration={DURATION} className="flex flex-wrap items-end justify-between gap-3">
+        <section className="mt-14" aria-label="Finish the module">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-taupe">Practice</p>
-              <h3 className="font-display mt-1 text-2xl font-medium text-espresso sm:text-3xl">
-                Check your understanding
+              <p className="text-xs uppercase tracking-[0.18em] text-taupe">Module checks</p>
+              <h3 className="font-display mt-1 text-2xl font-medium text-espresso">
+                {answered === total ? "Module finished" : "Finish the module"}
               </h3>
             </div>
             <QuizProgress answered={answered} correct={correctCount} total={total} />
-          </Reveal>
-          <div className="mt-6 space-y-4">
-            {lesson.questions.map((q, i) => (
-              <Reveal
-                key={i}
-                group="quiz"
-                delay={quizHeadingAt + QUIZ_STAGGER * (i + 1)}
-                stagger={QUIZ_STAGGER}
-                duration={DURATION}
-              >
-                <QuizQuestion
-                  index={i}
-                  question={q}
-                  onAnswer={(chosen, correct) => handleAnswer(i, chosen, correct)}
-                />
-              </Reveal>
-            ))}
           </div>
+          {answered < total && (
+            <div className="mt-4 rounded-2xl border border-beige bg-paper px-5 py-4 text-sm text-sand">
+              <p>
+                {unanswered.length === 1 ? "One check is" : `${unanswered.length} checks are`} still open. Your
+                progress is saved once every check is answered.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {unanswered.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => document.getElementById(`check-${q}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="rounded-full border border-gold/40 px-3 py-1 text-xs font-medium text-gold hover:bg-gold/10"
+                  >
+                    Go to check {checkOrder.indexOf(q) + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {answered === total && (
             <QuizOutcome
               correct={correctCount}

@@ -1,21 +1,6 @@
-import type { Activity as ActivityData } from "@/lib/activities";
-
-export type Question = {
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
-};
-
-export type Lesson = {
-  title: string;
-  objective: string;
-  estimatedMinutes: number;
-  concepts: { name: string; explanation: string; example: string }[];
-  /** Interactive activities; absent on lessons written before they existed. */
-  activities?: ActivityData[];
-  questions: Question[];
-};
+// The stored lesson shape is shared with the server (type-only import).
+export type { Block, Lesson, Question } from "@/lib/lessonBlocks";
+import type { Lesson } from "@/lib/lessonBlocks";
 
 /** A standalone lesson (made before courses existed). */
 export type LessonRow = {

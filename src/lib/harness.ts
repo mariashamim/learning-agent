@@ -213,6 +213,10 @@ async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
           moduleCount: course.modules.length,
           module: course.modules[moduleIndex],
           previousModules: course.modules.slice(0, moduleIndex).map((m) => m.title),
+          previousApproaches: course.modules
+            .slice(0, moduleIndex)
+            .map((_, i) => latestLessonForModule(course, i)?.lesson_data.approach)
+            .filter((a): a is NonNullable<typeof a> => !!a),
           focus: args.data.focus,
         },
         {

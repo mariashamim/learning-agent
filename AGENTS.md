@@ -25,7 +25,7 @@ See [HARNESS.md](HARNESS.md) for the design rationale and research notes.
             ├─ create_course     → Supabase: courses
             ├─ get_quiz_mistakes → Supabase: attempts
             └─ write_module      → quality gate (lib/lessonWriter.ts)
-                 ├─ generate → evaluate → [revise → evaluate]
+                 ├─ generate → validate blocks → lint → evaluate → [revise → evaluate]
                  ├─ select best *evaluated* version
                  ├─ save_lesson   → Supabase: lessons (course_id, module_index)
                  └─ save_progress → Supabase: progress
@@ -58,17 +58,47 @@ revised and re-scored. Only evaluated versions can be shown: the
 highest-scoring one, with its real score and a `passed` flag. A revision that
 fails or can't be evaluated is discarded.
 
-**Valid quiz.** Every lesson has 2-4 scenario-based questions with exactly 4
-options and a `correctAnswer` that matches an option. Invalid output is retried once.
+**Lessons are designed, not templated.** A lesson is an ordered list of
+teaching blocks (`lib/lessonBlocks.ts`). The writer first picks a teaching
+approach that fits the content (mystery, guided discovery, visual, scenario,
+worked example, misconception, simulation, case study, story, Socratic,
+compare, practice, reflection), then builds the sequence from these blocks:
+explain, activity, check, worked example, code (predict output / find the fix
+/ step-through trace), compare, reflect, dialogue, summary. Nothing is fixed:
+no mandatory opening prediction, definition or closing quiz. Earlier modules'
+approaches are passed in so a course varies. Topic-specific sequences are
+never hardcoded; the guide describes what each approach does to a lesson's
+shape, and the model chooses.
 
-**Interactive activities.** Every new lesson also has 2-5 activities placed
-between its concepts: predict (ask before you tell), scenario, drag-and-drop
-sort, drag-to-order, story, timeline, infographic chart, slider simulation,
-interactive diagram, narrated listen (browser speech) and playable sound (Web
-Audio, music topics only). The model fills one flat schema; `lib/activities.ts`
-validates each activity for its type and drops any that is malformed. Fewer
-than 2 usable activities counts as an invalid lesson (retried once). Activities
-are practice: ungraded and not saved. Progress still comes from the quiz.
+**Checks live inside the lesson.** Graded questions (2-4, scenario-based,
+exactly 4 options, `correctAnswer` matching one) stay in `questions`, so
+grading and progress are unchanged; each is placed by a `check` block right
+after the idea it tests, with up to 2 progressive hints and an alternative
+explanation shown after a wrong answer. The module is saved once every check
+is answered.
+
+**Validation in code.** `lib/lessonDesign.ts` validates each block, activity
+and question on its own, drops what is malformed, remaps references, and
+places any question no block placed. It rejects a lesson (retried once) with
+fewer than 2 valid questions, fewer than 3 usable blocks, nothing that
+teaches, or fewer than 2 hands-on blocks. `lintStructure()` finds problems
+that don't make a lesson unusable (checks stacked at the end, walls of text,
+the old template) and hands them to the evaluator, which scores them down.
+The reviser sees the lesson in exactly the format it writes
+(`toModelFormat()`), so revisions don't lose activities.
+
+**Interactive activities.** Activity blocks place one of 11 activity types:
+predict, scenario, drag-and-drop sort, drag-to-order, story, timeline,
+infographic chart, slider simulation, interactive diagram, narrated listen
+(browser speech) and playable sound (Web Audio, music topics only).
+`lib/activities.ts` validates each for its type. Activities, code exercises,
+worked examples, reflections and dialogues are practice: ungraded and not
+saved. Progress still comes from the checks.
+
+**Saved lessons keep working.** Lessons saved before blocks existed have
+`concepts`, `activities` (placed by `afterConcept`) and `questions`;
+`lessonBlocks()` rebuilds them in their original order, so old courses,
+progress and grading are untouched. No database migration is needed.
 
 **Bounded iteration.** Max 6 agent turns, at most one revision per lesson, one
 retry for malformed output, one retry for transient call failures, 60s per
@@ -85,6 +115,8 @@ Each run rebuilds the agent's context from there.
 
 - `src/lib/harness.ts` — tutor agent loop, tools, fast paths
 - `src/lib/lessonWriter.ts` — quality gate: generate / evaluate / revise
+- `src/lib/lessonBlocks.ts` — stored lesson shape: approaches, blocks, old-lesson conversion
+- `src/lib/lessonDesign.ts` — lesson writing guide, block validation, structure lint, model format
 - `src/lib/activities.ts` — interactive activity schema, writing guide, validation
 - `src/lib/model.ts` — OpenRouter client (structured output, tool calling)
 - `src/lib/progress.ts` — quiz grading and course progression
@@ -104,12 +136,16 @@ Each run rebuilds the agent's context from there.
 - `src/components/app/AppState.tsx` — shared client state: learner, courses, tutor
   requests with background prefetch, quiz saving, bookmarks
 - `src/components/app/AppShell.tsx` — layout: left menu, phone tab bar, overlays
+- `src/components/LessonView.tsx` — renders a lesson's blocks in order, session bar, module finish
+- `src/components/lesson/` — one component per block kind (code, worked, reflect, dialogue, …)
 - `src/components/activities/` — one component per activity type
 - `src/components/`, `src/hooks/` — UI pieces
 
 Bookmarks are stored in the browser (localStorage, per learner ID), matching
 the per-browser learner identity; they are not in Supabase.
 - `supabase/migrations/` — SQL to run in Supabase
+- `scripts/sample-lessons.ts` — writes sample modules for several subjects to compare their shapes
+- `*.test.ts(x)` — unit and rendering tests (`npm test`)
 
 ## Environment
 
@@ -129,7 +165,9 @@ modules (jsonb: [{title, goal}]), current_module, status, created_at,
 updated_at; unique(learner_id, topic_key)
 
 **lessons** — id, learner_id, topic, lesson_data (jsonb), score, created_at,
-course_id, module_index, completed_at
+course_id, module_index, completed_at. `lesson_data` is a `Lesson`
+(`lib/lessonBlocks.ts`): version 2 lessons have `approach`, `blocks`,
+`activities`, `questions`; older ones `concepts`, `activities`, `questions`.
 
 **attempts** — id, learner_id, lesson_id, question_index, chosen, correct,
 created_at
@@ -145,9 +183,12 @@ unique(learner_id, topic)
 - Every lesson that is shown must first pass evaluation.
 - Grade quizzes on the server, never in the browser.
 - Do not remove tests or policies to make things pass.
+- Run `npm test`, `npm run lint` and `npm run build` before pushing.
+- Don't hardcode topic-specific lesson sequences; describe moves and let the writer choose.
 
 ## What's next (not yet implemented)
 
 - Spaced-repetition scheduling from recorded mistakes
 - Accounts instead of a per-browser learner ID
-- An eval suite for the agent (fixed topics, expected tool sequences, scores)
+- An eval suite for the agent (fixed topics, expected tool sequences, scores);
+  `scripts/sample-lessons.ts` is a manual start for lesson variety

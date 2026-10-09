@@ -1,0 +1,86 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { Lesson } from "@/lib/lessonBlocks";
+import { normalizeLesson } from "@/lib/lessonDesign";
+import { legacyLesson, rawHistoryLesson, rawProgrammingLesson } from "@/lib/testFixtures";
+import { rich } from "./lesson/rich";
+import { LessonView } from "./LessonView";
+import type { View } from "./types";
+
+function render(lesson: Lesson) {
+  const view: Extract<View, { kind: "lesson" }> = {
+    kind: "lesson",
+    key: 1,
+    lesson,
+    lessonId: 1,
+    score: 9,
+    status: {},
+    course: null,
+    moduleIndex: null,
+    tutorNote: null,
+    trace: [],
+  };
+  return renderToStaticMarkup(
+    <LessonView view={view} onSubmitQuiz={async () => assert.fail()} onContinue={() => {}} onOpenModule={() => {}} />
+  );
+}
+
+const normalized = (raw: unknown) => {
+  const r = normalizeLesson(raw);
+  if (!r.ok) assert.fail(r.error);
+  return r.lesson;
+};
+
+/** Index of each needle in the markup, asserting each is present. */
+const positions = (html: string, needles: string[]) =>
+  needles.map((n) => {
+    const at = html.indexOf(n);
+    assert.ok(at >= 0, `missing: ${n}`);
+    return at;
+  });
+
+describe("LessonView", () => {
+  it("renders a programming lesson's blocks in order, checks inline", () => {
+    const html = render(normalized(rawProgrammingLesson()));
+    const at = positions(html, [
+      "Predict the output",
+      "Step through it",
+      "Check 1 of 2",
+      "The accumulator pattern",
+      "Find the fix",
+      "Check 2 of 2",
+      "Put it in order",
+      "Finish the module",
+    ]);
+    assert.deepEqual([...at].sort((a, b) => a - b), at, "blocks render in lesson order");
+    assert.ok(html.includes("total += i"), "code is shown");
+    assert.ok(html.includes("Practice-driven"), "the approach is shown");
+    assert.ok(html.includes("Need a hint?"), "checks with hints offer them");
+  });
+
+  it("renders a history lesson with a different set of blocks", () => {
+    const html = render(normalized(rawHistoryLesson()));
+    positions(html, ["Story", "A kingdom in debt", "Check 1 of 2", "Timeline", "Two estates", "In your own words", "Check 2 of 2", "What to take away"]);
+    assert.ok(!html.includes("code-window"), "no code in a history lesson");
+  });
+
+  it("still renders a lesson saved before blocks existed", () => {
+    const html = render(legacyLesson() as Lesson);
+    const at = positions(html, ["Predict first", "The dichotomy of control", "Practice", "Check 1 of 3", "Check 3 of 3"]);
+    assert.deepEqual([...at].sort((a, b) => a - b), at);
+    assert.ok(html.includes("For example"));
+  });
+
+  it("explains a lesson with no questions instead of breaking", () => {
+    const html = render({ title: "Old", objective: "o", estimatedMinutes: 5, concepts: [], questions: [] });
+    assert.ok(html.includes("saved before quizzes were required"));
+  });
+});
+
+describe("rich text", () => {
+  it("renders `inline code` as code and leaves other text alone", () => {
+    assert.equal(renderToStaticMarkup(<p>{rich("Use `for x in xs` here")}</p>), '<p>Use <code class="inline-code font-mono">for x in xs</code> here</p>');
+    assert.equal(renderToStaticMarkup(<p>{rich("No code, <b>not html</b>")}</p>), "<p>No code, &lt;b&gt;not html&lt;/b&gt;</p>");
+  });
+});

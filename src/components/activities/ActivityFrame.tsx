@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { ActivityType } from "@/lib/activities";
+import { rich } from "../lesson/rich";
 
 export const ACTIVITY_META: Record<ActivityType, { label: string; icon: string }> = {
   predict: { label: "Predict first", icon: "?" },
@@ -47,12 +48,12 @@ export function ActivityFrame({
         )}
       </div>
       <h3 className="font-display relative mt-3 text-2xl leading-snug text-sand">{title}</h3>
-      {prompt && <p className="relative mt-2 text-[15px] leading-relaxed text-sand/85">{prompt}</p>}
+      {prompt && <p className="relative mt-2 text-[15px] leading-relaxed text-sand/85">{rich(prompt)}</p>}
       <div className="relative mt-5">{children}</div>
       {done && reveal && (
         <div className="activity-reveal relative mt-5 rounded-2xl border border-gold/30 bg-gold/10 px-4 py-3">
           <p className="text-[10px] font-semibold tracking-[0.18em] text-gold uppercase">Key insight</p>
-          <p className="mt-1 text-sm leading-relaxed text-sand">{reveal}</p>
+          <p className="mt-1 text-sm leading-relaxed text-sand">{rich(reveal)}</p>
         </div>
       )}
     </section>
