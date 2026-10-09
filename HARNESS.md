@@ -229,3 +229,25 @@ The programming module reads real code (predict the output, a line-by-line
 trace with variable state, a bug to fix); the history module opens on a
 puzzle and resolves it; the music module plays chords. Lesson writing takes
 about 30-50s, close to before.
+
+## Levels: a hierarchy without a migration
+
+Courses went from a flat list of 3-6 modules to course → levels → modules.
+Everything that tracks progress (lessons.module_index, courses.current_module,
+grading, the prefetch, URLs) works on a module's position in one ordered
+list, so the hierarchy was added as a grouping over that list rather than a
+new structure: each module entry carries its level, and the levels are
+rebuilt when a course is shown. That kept saved progress valid by
+construction, needed no database migration, and left old courses readable as
+they were (one path, no invented levels).
+
+The plan is validated in code, not trusted to the prompt: 2-4 levels, 2-4
+modules each, 4-12 in total, distinct titles, and levels named for what they
+cover ("Level 1" alone is rejected). A failing plan goes back to the agent as
+a tool error, the same way other tool misuse does.
+
+Sample plans with DeepSeek V4.1 Flash: "Photosynthesis" → 4 levels (the big
+picture, light reactions, the Calvin cycle, real-world limits) of 3, 3, 3 and
+2 modules; "Brewing pour-over coffee" → 3 levels of 3 (first reliable cup,
+bloom and pouring, dialing in). Planning plus the first module took about 65s,
+as before.

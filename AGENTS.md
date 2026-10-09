@@ -3,8 +3,9 @@
 ## What this is
 
 A stateful tutor, in the spirit of Brilliant. A learner names any topic; a
-tutor agent plans a short course (3-6 modules of 5-10 minutes), writes one
-module at a time through a quality gate, and records quiz results. When the
+tutor agent plans a course as levels (stages of learning), each grouping a few
+5-10 minute modules, writes one module at a time through a quality gate, and
+records quiz results. When the
 learner comes back, the course resumes where they left off, and the agent
 adapts the next module to what they got wrong.
 
@@ -22,7 +23,7 @@ See [HARNESS.md](HARNESS.md) for the design rationale and research notes.
        ├─ fast paths    → course finished: overview; module unfinished: resume
        │                  (no model call)
        └─ agent loop    → OpenRouter tool calling, max 6 turns
-            ├─ create_course     → Supabase: courses
+            ├─ create_course     → plan levels + modules (lib/coursePlan.ts) → Supabase: courses
             ├─ get_quiz_mistakes → Supabase: attempts
             └─ write_module      → quality gate (lib/lessonWriter.ts)
                  ├─ generate → validate blocks → lint → evaluate → [revise → evaluate]
@@ -57,6 +58,24 @@ validated with zod.
 revised and re-scored. Only evaluated versions can be shown: the
 highest-scoring one, with its real score and a `passed` flag. A revision that
 fails or can't be evaluated is discarded.
+
+**Course hierarchy.** Course → levels → modules → lesson (whose blocks
+are the activities). A level is a stage of learning with its own objective; a
+module groups related ideas inside it and is one lesson. The agent plans
+2-4 levels of 2-4 modules (4-12 modules in total), sized to the subject;
+`lib/coursePlan.ts` validates the plan in code (counts, distinct titles,
+levels named for what they cover) and returns problems to the agent as an
+error to fix. Storage is still one ordered list (`courses.modules`), so
+module positions keep meaning what they meant: `lessons.module_index`,
+`courses.current_module`, grading, progression and `/courses/[id]/[n]` are
+unchanged. Each new module entry also carries a stable `id`
+(`level-2-module-1`), a `description` and its `level` (id, title,
+description, objective); `lib/courseHierarchy.ts` rebuilds the levels when a
+course is shown. Progression is sequential: a module opens when the one
+before it is completed, so a level opens when the level before it is done.
+Level status is derived only from saved completions. Courses planned before
+levels have no level data and are shown as one unlabelled path; they are
+never split into invented levels.
 
 **Lessons are designed, not templated.** A lesson is an ordered list of
 teaching blocks (`lib/lessonBlocks.ts`). The writer first picks a teaching
@@ -120,7 +139,9 @@ Each run rebuilds the agent's context from there.
 - `src/lib/activities.ts` — interactive activity schema, writing guide, validation
 - `src/lib/model.ts` — OpenRouter client (structured output, tool calling)
 - `src/lib/progress.ts` — quiz grading and course progression
-- `src/lib/courseView.ts` — client-facing course shape
+- `src/lib/courseView.ts` — client-facing course shape: levels, modules, lessons
+- `src/lib/coursePlan.ts` — course plan schema, planning guide, validation
+- `src/lib/courseHierarchy.ts` — levels from the stored module list, labels, old-course handling
 - `src/lib/db.ts` — Supabase access
 - `src/lib/requestGuards.ts` — input validation, rate limiting, error responses
 - `src/app/api/learn/route.ts` — runs the tutor
@@ -161,8 +182,11 @@ The model must support tool calling (DeepSeek V4.1 Flash does).
 ## Data model
 
 **courses** — id, learner_id, topic, topic_key, title, description,
-modules (jsonb: [{title, goal}]), current_module, status, created_at,
-updated_at; unique(learner_id, topic_key)
+modules (jsonb, ordered: [{id, title, goal, description, level: {id, title,
+description, objective}}]; older courses only {title, goal}),
+current_module (position in modules), status, created_at, updated_at;
+unique(learner_id, topic_key). Level data lives inside `modules`, so the
+hierarchy needed no migration.
 
 **lessons** — id, learner_id, topic, lesson_data (jsonb), score, created_at,
 course_id, module_index, completed_at. `lesson_data` is a `Lesson`
@@ -189,6 +213,8 @@ unique(learner_id, topic)
 ## What's next (not yet implemented)
 
 - Spaced-repetition scheduling from recorded mistakes
+- A visual level map for courses (the hierarchy exists; the UI is still a list)
+- More than one lesson per module (today a module is one lesson of activity blocks)
 - Accounts instead of a per-browser learner ID
 - An eval suite for the agent (fixed topics, expected tool sequences, scores);
   `scripts/sample-lessons.ts` is a manual start for lesson variety

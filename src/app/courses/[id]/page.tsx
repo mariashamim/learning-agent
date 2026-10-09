@@ -8,6 +8,7 @@ import { StarButton, courseProgress } from "@/components/app/CourseCards";
 import { TopicArt } from "@/components/app/TopicArt";
 import { ArrowRightIcon, CheckIcon } from "@/components/Icons";
 import { Reveal } from "@/components/Reveal";
+import { levelsOf, moduleLabel } from "@/lib/courseHierarchy";
 
 export default function CourseWelcomePage() {
   const { id } = useParams<{ id: string }>();
@@ -37,11 +38,14 @@ export default function CourseWelcomePage() {
   const currentReady = !!course.modules[current]?.lesson;
   const minutes = course.modules.reduce((n, m) => n + (m.lesson?.data.estimatedMinutes ?? 8), 0);
 
+  const levels = levelsOf(course);
+  const hasLevels = !levels.every((l) => l.legacy);
+  const label = (i: number) => moduleLabel(levels, i);
   const cta = finished
-    ? { label: "Review from Module 1", href: `/courses/${course.id}/1` }
+    ? { label: "Review from the start", href: `/courses/${course.id}/1` }
     : currentReady
-      ? { label: `${done ? "Continue" : "Start"} Module ${current + 1}`, href: `/courses/${course.id}/${current + 1}` }
-      : { label: `Start Module ${current + 1}`, onClick: () => learn(course.topic) };
+      ? { label: `${done ? "Continue" : "Start"} ${label(current)}`, href: `/courses/${course.id}/${current + 1}` }
+      : { label: `Start ${label(current)}`, onClick: () => learn(course.topic) };
 
   return (
     <main className="mx-auto max-w-5xl px-4 pt-8 pb-24 sm:px-6 lg:px-10">
@@ -63,6 +67,7 @@ export default function CourseWelcomePage() {
           <h1 className="font-display mt-2 text-4xl leading-tight text-sand sm:text-5xl">{course.title}</h1>
           <p className="mt-4 text-base leading-relaxed text-sand/80">{course.description}</p>
           <div className="mt-5 flex flex-wrap gap-2 text-xs text-sand">
+            {hasLevels && <span className="rounded-full bg-ink/40 px-3 py-1.5">{levels.length} levels</span>}
             <span className="rounded-full bg-ink/40 px-3 py-1.5">{total} modules</span>
             <span className="rounded-full bg-ink/40 px-3 py-1.5">≈ {minutes} min</span>
             <span className="rounded-full bg-ink/40 px-3 py-1.5">
@@ -88,58 +93,97 @@ export default function CourseWelcomePage() {
         <h2 id="modules" className="font-display text-3xl text-sand">
           Your path
         </h2>
-        <ol className="module-path relative mt-8" style={{ "--path-progress": `${total > 1 ? (done / (total - 1)) * 100 : 0}%` } as CSSProperties}>
-          {course.modules.map((m, i) => {
-            const isDone = !!m.lesson?.completed;
-            const isCurrent = !finished && i === current;
-            const locked = !isDone && !isCurrent;
-            const state = isDone ? "done" : isCurrent ? "current" : "locked";
-            const href = m.lesson ? `/courses/${course.id}/${i + 1}` : null;
-            const action = isDone ? "Review" : isCurrent ? (m.lesson && done > 0 ? "Continue" : "Start") : "Locked";
-            const inner = (
-              <>
-                <span className="path-node" data-state={state} aria-hidden>
-                  {isDone ? <CheckIcon size={18} strokeWidth={2.6} /> : i + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-medium tracking-[0.16em] text-taupe uppercase">Module {i + 1}</span>
-                  <span className="font-display block text-xl text-sand">{m.title}</span>
-                  <span className="mt-1 block text-sm text-taupe">{m.goal}</span>
-                  {m.lesson?.quiz && (
-                    <span className="mt-2 inline-block rounded-full bg-gold/15 px-2.5 py-0.5 text-xs text-gold">
-                      Quiz {m.lesson.quiz.correct}/{m.lesson.quiz.total}
-                    </span>
-                  )}
-                </span>
-                <span className={`flex-shrink-0 text-sm font-semibold ${locked ? "text-taupe/60" : "text-gold"}`}>
-                  {action} {!locked && "→"}
-                </span>
-              </>
-            );
-            const cls = `path-item flex w-full items-start gap-5 rounded-2xl border p-5 text-left ${
-              isCurrent ? "border-gold/60 bg-paper" : "border-beige bg-paper/60"
-            } ${locked ? "opacity-70" : "hover:border-gold/60"}`;
+        <div className="mt-8 space-y-12">
+          {levels.map((level, n) => {
+            const levelDone = level.modules.filter((i) => course.modules[i].lesson?.completed).length;
             return (
-              <li key={i} className="relative pb-4 pl-0">
-                <Reveal group="path" delay={i * 90} stagger={90}>
-                  {href ? (
-                    <Link href={href} className={cls}>
-                      {inner}
-                    </Link>
-                  ) : isCurrent ? (
-                    <button type="button" disabled={!!busy} onClick={() => learn(course.topic)} className={cls}>
-                      {inner}
-                    </button>
-                  ) : (
-                    <div className={cls} aria-disabled>
-                      {inner}
-                    </div>
-                  )}
-                </Reveal>
-              </li>
+              <section key={level.id} aria-labelledby={`level-${level.id}`} data-level-status={level.status}>
+                {!level.legacy && (
+                  <header className="mb-5">
+                    <p className="text-xs font-semibold tracking-[0.18em] text-gold uppercase">
+                      Level {n + 1}
+                      <span className="ml-2 font-normal tracking-normal text-taupe normal-case">
+                        {level.status === "done"
+                          ? "· finished"
+                          : level.status === "current"
+                            ? "· you are here"
+                            : level.prerequisite
+                              ? `· unlocks after Level ${n}`
+                              : ""}
+                      </span>
+                    </p>
+                    <h3 id={`level-${level.id}`} className="font-display mt-1 text-2xl text-sand sm:text-3xl">
+                      {level.title}
+                    </h3>
+                    {level.description && <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-sand/80">{level.description}</p>}
+                    <p className="mt-2 text-sm text-taupe">
+                      {level.objective && <>You&rsquo;ll be able to: {level.objective} · </>}
+                      <span className="tabular-nums">
+                        {levelDone}/{level.modules.length} modules
+                      </span>
+                    </p>
+                  </header>
+                )}
+                <ol
+                  className="module-path relative"
+                  style={{ "--path-progress": `${level.modules.length > 1 ? (levelDone / (level.modules.length - 1)) * 100 : 0}%` } as CSSProperties}
+                >
+                  {level.modules.map((i, li) => {
+                    const m = course.modules[i];
+                    const isDone = !!m.lesson?.completed;
+                    const isCurrent = !finished && i === current;
+                    const locked = !isDone && !isCurrent;
+                    const state = isDone ? "done" : isCurrent ? "current" : "locked";
+                    const href = m.lesson ? `/courses/${course.id}/${i + 1}` : null;
+                    const action = isDone ? "Review" : isCurrent ? (m.lesson && done > 0 ? "Continue" : "Start") : "Locked";
+                    const inner = (
+                      <>
+                        <span className="path-node" data-state={state} aria-hidden>
+                          {isDone ? <CheckIcon size={18} strokeWidth={2.6} /> : hasLevels ? li + 1 : i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[11px] font-medium tracking-[0.16em] text-taupe uppercase">{label(i)}</span>
+                          <span className="font-display block text-xl text-sand">{m.title}</span>
+                          <span className="mt-1 block text-sm text-taupe">{m.goal}</span>
+                          {m.lesson?.quiz && (
+                            <span className="mt-2 inline-block rounded-full bg-gold/15 px-2.5 py-0.5 text-xs text-gold">
+                              Quiz {m.lesson.quiz.correct}/{m.lesson.quiz.total}
+                            </span>
+                          )}
+                        </span>
+                        <span className={`flex-shrink-0 text-sm font-semibold ${locked ? "text-taupe/60" : "text-gold"}`}>
+                          {action} {!locked && "→"}
+                        </span>
+                      </>
+                    );
+                    const cls = `path-item flex w-full items-start gap-5 rounded-2xl border p-5 text-left ${
+                      isCurrent ? "border-gold/60 bg-paper" : "border-beige bg-paper/60"
+                    } ${locked ? "opacity-70" : "hover:border-gold/60"}`;
+                    return (
+                      <li key={i} className="relative pb-4 pl-0">
+                        <Reveal group="path" delay={li * 90} stagger={90}>
+                          {href ? (
+                            <Link href={href} className={cls}>
+                              {inner}
+                            </Link>
+                          ) : isCurrent ? (
+                            <button type="button" disabled={!!busy} onClick={() => learn(course.topic)} className={cls}>
+                              {inner}
+                            </button>
+                          ) : (
+                            <div className={cls} aria-disabled>
+                              {inner}
+                            </div>
+                          )}
+                        </Reveal>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
             );
           })}
-        </ol>
+        </div>
       </section>
     </main>
   );

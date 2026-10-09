@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Answer, Course, Lesson, LessonRow, LessonStatus, PrefetchState, QuizResult, TraceStep } from "../types";
+import { levelsOf, moduleLabel } from "@/lib/courseHierarchy";
 
 // ---------- learner identity (browser-local) ----------
 
@@ -274,7 +275,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setBusy({
       topic,
       label: existing
-        ? `Preparing Module ${Math.min(existing.currentModule + 1, existing.modules.length)} of ${existing.title}`
+        ? `Preparing ${moduleLabel(levelsOf(existing), Math.min(existing.currentModule, existing.modules.length - 1))} of ${existing.title}`
         : `Planning a course on ${topic.trim()}`,
     });
     setError("");

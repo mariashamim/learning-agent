@@ -13,6 +13,8 @@
 
 import { z } from "zod";
 import * as db from "./db";
+import { groupLevels, modulePlace } from "./courseHierarchy";
+import { PLANNING_GUIDE, coursePlanToolParameters, parseCoursePlan } from "./coursePlan";
 import { latestLessonForModule, toCourseView, type CourseView } from "./courseView";
 import { PASS_SCORE, writeLesson, type Lesson, type TraceEntry } from "./lessonWriter";
 import { callWithTools, type ChatMessage, type ToolCall, type ToolDefinition } from "./model";
@@ -28,9 +30,6 @@ const RUN_BUDGET_MS = 200_000;
 // Hard stop for every model call in the run (incl. retries). The route allows
 // 300s; the rest is headroom for database writes.
 const HARD_DEADLINE_MS = 280_000;
-
-const MIN_MODULES = 3;
-const MAX_MODULES = 6;
 
 /** Case- and whitespace-insensitive key, so "Stoicism" and " stoicism" are one course. */
 export function topicKey(topic: string) {
@@ -56,15 +55,6 @@ export type TutorResult =
 
 // ---------- Tools the agent can call ----------
 
-const CreateCourseArgs = z.object({
-  title: z.string().min(3).max(120),
-  description: z.string().min(10).max(400),
-  modules: z
-    .array(z.object({ title: z.string().min(3).max(120), goal: z.string().min(10).max(300) }))
-    .min(MIN_MODULES)
-    .max(MAX_MODULES),
-});
-
 const WriteModuleArgs = z.object({
   focus: z.string().max(800),
 });
@@ -75,28 +65,8 @@ const TOOLS: ToolDefinition[] = [
     function: {
       name: "create_course",
       description:
-        "Plan a new course for this topic: a short path of modules, each a 5-10 minute lesson. Only allowed when the learner has no course for the topic.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Course title" },
-          description: { type: "string", description: "One or two sentences on what the learner will get" },
-          modules: {
-            type: "array",
-            minItems: MIN_MODULES,
-            maxItems: MAX_MODULES,
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                goal: { type: "string", description: "What the learner can do after this module" },
-              },
-              required: ["title", "goal"],
-            },
-          },
-        },
-        required: ["title", "description", "modules"],
-      },
+        "Plan a new course for this topic: levels (stages of learning), each grouping a few modules, each module a 5-10 minute lesson. Only allowed when the learner has no course for the topic.",
+      parameters: coursePlanToolParameters,
     },
   },
   {
@@ -132,12 +102,14 @@ const TOOLS: ToolDefinition[] = [
 const SYSTEM_PROMPT = `You are the tutor agent of a learning app where anyone can learn anything through short interactive modules (5-10 minutes each). Each run, you prepare the learner's next module.
 
 How to work:
-1. If the learner has no course for this topic, call create_course with ${MIN_MODULES}-${MAX_MODULES} modules that build on each other, starting from beginner level. Use their history: don't re-teach basics they covered in related topics.
+1. If the learner has no course for this topic, call create_course. Use their history: don't re-teach basics they covered in related topics.
 2. If the course state shows wrong quiz answers, call get_quiz_mistakes and use what you learn in the module's focus (for example, open with a short recap of the misunderstood idea).
 3. Call write_module exactly once. Give a concrete focus for the lesson writer.
 4. Then reply, without tool calls, with a short note to the learner: 1-2 warm sentences in second person on what this module covers and why it's next. Plain text only, no markdown, under 60 words.
 
-Rules: one module per run; only the current module can be written; never claim progress the learner hasn't made.`;
+Rules: one module per run; only the current module can be written; never claim progress the learner hasn't made.
+
+${PLANNING_GUIDE}`;
 
 type RunState = {
   learnerId: string;
@@ -168,16 +140,21 @@ async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
   switch (call.function.name) {
     case "create_course": {
       if (state.course) return { error: "This learner already has a course for this topic. Use write_module." };
-      const args = CreateCourseArgs.safeParse(rawArgs);
-      if (!args.success) return { error: `Invalid arguments: ${args.error.message}` };
+      const parsed = parseCoursePlan(rawArgs);
+      if (!parsed.ok) return { error: `Invalid course plan: ${parsed.error}. Fix it and call create_course again.` };
       const row = await db.createCourse({
         learnerId: state.learnerId,
         topic: state.topic,
         topicKey: state.key,
-        ...args.data,
+        ...parsed.plan,
       });
       state.course = { ...row, lessons: [] };
-      return { ok: true, modules: row.modules.length, next: "Call write_module to write module 1." };
+      return {
+        ok: true,
+        levels: groupLevels(row.modules).length,
+        modules: row.modules.length,
+        next: "Call write_module to write the first module of level 1.",
+      };
     }
 
     case "get_quiz_mistakes": {
@@ -205,6 +182,9 @@ async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
 
       const course = state.course;
       const moduleIndex = course.current_module;
+      const levels = groupLevels(course.modules);
+      const place = modulePlace(levels, moduleIndex);
+      const level = place.legacy ? null : levels[place.level];
       const { lesson, score, passed } = await writeLesson(
         {
           topic: course.topic,
@@ -212,6 +192,16 @@ async function runTool(call: ToolCall, state: RunState): Promise<ToolResult> {
           moduleIndex,
           moduleCount: course.modules.length,
           module: course.modules[moduleIndex],
+          level: level
+            ? {
+                number: level.index + 1,
+                count: levels.length,
+                title: level.title,
+                objective: level.objective,
+                moduleNumber: place.number,
+                moduleCount: level.modules.length,
+              }
+            : undefined,
           previousModules: course.modules.slice(0, moduleIndex).map((m) => m.title),
           previousApproaches: course.modules
             .slice(0, moduleIndex)
@@ -259,6 +249,7 @@ async function describeState(state: RunState) {
 
   const course = state.course;
   const attempts = await db.getCourseAttempts(course.id);
+  const levels = groupLevels(course.modules);
   const lines = course.modules.map((m, i) => {
     const lesson = latestLessonForModule(course, i);
     const quiz = attempts.find((a) => a.id === lesson?.id)?.attempts ?? [];
@@ -269,7 +260,13 @@ async function describeState(state: RunState) {
         : i === course.current_module
           ? "NEXT — write this one"
           : "not started";
-    return `  ${i + 1}. ${m.title} — ${status}`;
+    const place = modulePlace(levels, i);
+    const line = `  ${place.legacy ? i + 1 : `${place.level + 1}.${place.number}`}. ${m.title} — ${status}`;
+    const level = levels[place.level];
+    // Head each level with what it's for, so the agent sees where the learner is in the journey.
+    return !place.legacy && place.number === 1
+      ? `Level ${level.index + 1}: ${level.title} (objective: ${level.objective})\n${line}`
+      : line;
   });
   return `Learner wants to continue: "${state.topic}"
 ${historyLine}

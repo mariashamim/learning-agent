@@ -8,6 +8,7 @@ import { LessonBlock } from "./lesson/LessonBlock";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
 import type { Answer, Course, PrefetchState, QuizResult, View } from "./types";
+import { levelsOf, moduleLabel } from "@/lib/courseHierarchy";
 
 // Entrance timing (ms): the header, then each block as it scrolls into view.
 const PASS_SCORE = 8;
@@ -56,6 +57,8 @@ export function LessonView({
   const sessionDone = practice.filter(({ i }) => doneBlocks.has(i)).length + answered;
   const approach = approachLabel(lesson.approach);
   const currentMod = course && moduleIndex !== null ? course.modules[moduleIndex] : null;
+  const level = course && currentMod ? levelsOf(course)[currentMod.level] : null;
+  const levelTitle = level && !level.legacy ? level.title : null;
   // After the quiz is saved, show the server's updated course (e.g. this module ticked off).
   const pathCourse =
     submission.state === "done" && submission.result.course ? submission.result.course : course;
@@ -97,7 +100,8 @@ export function LessonView({
           {currentMod && moduleIndex !== null && course && (
             <>
               <span className="font-medium uppercase tracking-[0.18em] text-coffee">
-                Module {moduleIndex + 1} of {course.modules.length}
+                {moduleLabel(levelsOf(course), moduleIndex)}
+                {levelTitle && <span className="ml-1.5 normal-case tracking-normal text-taupe">{levelTitle}</span>}
               </span>
               <span className="h-1 w-1 rounded-full bg-beige" aria-hidden />
             </>
@@ -297,7 +301,7 @@ function QuizOutcome({
               <p className="text-sm text-peach/85">
                 {nextIndex === moduleIndex
                   ? "This module is still open."
-                  : `Up next: Module ${nextIndex + 1}, ${next.title}.`}
+                  : `Up next: ${moduleLabel(levelsOf(latest), nextIndex)}, ${next.title}.`}
                 {nextModuleState === "pending" && (
                   <span className="mt-1 flex items-center gap-2 text-xs text-peach/65">
                     <span className="inline-flex gap-1" aria-hidden>
@@ -313,7 +317,7 @@ function QuizOutcome({
                 )}
               </p>
               <button type="button" onClick={() => onContinue(latest.topic)} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold">
-                {next.lesson ? `Go to Module ${nextIndex + 1} →` : `Start Module ${nextIndex + 1} →`}
+                {next.lesson ? "Go to the next module →" : "Start the next module →"}
               </button>
             </>
           ) : null}

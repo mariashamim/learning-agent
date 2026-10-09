@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireEnv } from "./env";
+import type { StoredModule } from "./courseHierarchy";
 import type { Lesson } from "./lessonWriter";
 
 // Created on first use, not at import: `next build` loads route modules, and
@@ -14,7 +15,8 @@ function supabase(): SupabaseClient {
 
 // ---------- Types ----------
 
-export type ModulePlan = { title: string; goal: string };
+/** One planned module; newer ones also carry an id and their level (see courseHierarchy.ts). */
+export type ModulePlan = StoredModule;
 
 export type CourseRow = {
   id: number;

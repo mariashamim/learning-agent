@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const STEPS = [
   { title: "Name anything", body: "Philosophy, black holes, jazz harmony. If you can name it, your tutor can teach it." },
-  { title: "Your tutor plans a path", body: "It maps a short course of three to six modules, each building on the last." },
+  { title: "Your tutor plans a path", body: "It maps a course in levels, each a few short modules that build on the last." },
   { title: "Learn in ten minutes", body: "Each module is designed for its topic: code to trace, a mystery to solve, a story or a simulation, with checks where they matter. A second pass reviews it first." },
   { title: "Watch it grow", body: "Finish modules to grow your garden, keep your streak, and come back right where you left off." },
 ];

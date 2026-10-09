@@ -11,31 +11,12 @@ export type LessonRow = {
   lesson_data: Lesson;
 };
 
-// Mirrors CourseView in src/lib/courseView.ts.
-export type CourseModule = {
-  title: string;
-  goal: string;
-  lesson: {
-    id: number;
-    score: number | null;
-    completed: boolean;
-    createdAt: string;
-    completedAt: string | null;
-    quiz: { correct: number; total: number } | null;
-    data: Lesson;
-  } | null;
-};
-
-export type Course = {
-  id: number;
-  topic: string;
-  title: string;
-  description: string;
-  status: "active" | "completed";
-  currentModule: number;
-  updatedAt: string;
-  modules: CourseModule[];
-};
+// The course shape the API returns: levels grouping ordered modules, each
+// with its lesson (type-only import, shared with the server).
+import type { CourseView } from "@/lib/courseView";
+export type Course = CourseView;
+export type CourseModule = CourseView["modules"][number];
+export type CourseLevel = CourseView["levels"][number];
 
 // Shape of a harness trace entry; extra fields vary by step.
 export type TraceStep = { step?: string; score?: number; [key: string]: unknown };

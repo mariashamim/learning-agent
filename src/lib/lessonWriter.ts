@@ -27,7 +27,9 @@ export type LessonBrief = {
   courseTitle: string;
   moduleIndex: number;
   moduleCount: number;
-  module: { title: string; goal: string };
+  module: { title: string; goal: string; description?: string };
+  /** Where the module sits in the course's levels; absent for courses planned before levels. */
+  level?: { number: number; count: number; title: string; objective: string; moduleNumber: number; moduleCount: number };
   /** Titles of the modules before this one, for continuity. */
   previousModules: string[];
   /** Teaching approaches earlier modules used, so a course doesn't repeat one shape. */
@@ -58,8 +60,14 @@ function describeBrief(b: LessonBrief) {
     ? `Modules already covered: ${b.previousModules.map((t, i) => `${i + 1}. ${t}`).join("; ")}.`
     : "This is the first module.";
   return `Course: ${b.courseTitle} (topic: ${b.topic})
-Module ${b.moduleIndex + 1} of ${b.moduleCount}: ${b.module.title}
-Module goal: ${b.module.goal}
+${
+    b.level
+      ? `Level ${b.level.number} of ${b.level.count}: ${b.level.title} (level objective: ${b.level.objective})
+Module ${b.level.moduleNumber} of ${b.level.moduleCount} in this level (${b.moduleIndex + 1} of ${b.moduleCount} in the course): ${b.module.title}`
+      : `Module ${b.moduleIndex + 1} of ${b.moduleCount}: ${b.module.title}`
+  }
+Module goal: ${b.module.goal}${b.module.description ? `
+Module covers: ${b.module.description}` : ""}
 ${before}
 ${b.previousApproaches?.length ? `Approaches used in earlier modules: ${b.previousApproaches.join(", ")}.\n` : ""}Tutor's instructions for this module: ${b.focus || "none"}`;
 }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAppState } from "@/components/app/AppState";
 import { LessonView } from "@/components/LessonView";
 import type { View } from "@/components/types";
+import { levelsOf, moduleLabel } from "@/lib/courseHierarchy";
 
 export default function ModulePage() {
   const { id, module } = useParams<{ id: string; module: string }>();
@@ -43,14 +44,14 @@ export default function ModulePage() {
           ← {course.title}
         </Link>
         <div className="mt-8 rounded-3xl border border-beige bg-paper p-10 text-center">
-          <p className="text-xs tracking-[0.2em] text-gold uppercase">Module {index + 1}</p>
+          <p className="text-xs tracking-[0.2em] text-gold uppercase">{moduleLabel(levelsOf(course), index)}</p>
           <p className="font-display mt-2 text-3xl text-sand">{course.modules[index].title}</p>
           <p className="mt-3 text-taupe">
             {isCurrent ? "This module hasn’t been written yet." : "Finish the earlier modules to unlock this one."}
           </p>
           {isCurrent && (
             <button type="button" disabled={!!busy} onClick={() => learn(course.topic)} className="btn-primary mt-6 rounded-xl px-6 py-3 font-semibold">
-              Write Module {index + 1}
+              Write this module
             </button>
           )}
         </div>

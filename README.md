@@ -3,7 +3,7 @@
 <img src="public/brand/weavr-logo-original.webp" alt="Weavr logo" width="200" />
 
 An agentic tutor, in the spirit of Brilliant. Name any topic and a tutor
-agent plans a short course, writes each 5-10 minute module (checked by a
+agent plans a course in levels of short modules, writes each 5-10 minute module (checked by a
 separate evaluator before you see it), grades your quizzes, and picks up where
 you left off when you come back.
 
