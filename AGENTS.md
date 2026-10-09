@@ -116,13 +116,27 @@ the old template) and hands them to the evaluator, which scores them down.
 The reviser sees the lesson in exactly the format it writes
 (`toModelFormat()`), so revisions don't lose activities.
 
-**Interactive activities.** Activity blocks place one of 11 activity types:
+**Interactive activities.** Activity blocks place one of 12 activity types:
 predict, scenario, drag-and-drop sort, drag-to-order, story, timeline,
 infographic chart, slider simulation, interactive diagram, narrated listen
-(browser speech) and playable sound (Web Audio, music topics only).
+(browser speech), playable sound (Web Audio, music topics only) and graph (a
+curve the learner reshapes by dragging a parameter). A graph's formula is
+compiled by a small safe parser (`lib/expression.ts`, no eval) and rejected
+unless it draws a real curve that is visible in the window the lesson chose.
 `lib/activities.ts` validates each for its type. Activities, code exercises,
 worked examples, problems, reflections and dialogues are practice: ungraded and not
 saved. Progress still comes from the checks.
+
+**Motion.** Animation follows real state only: map nodes show saved
+completion, the gold trail runs only out of completed modules, celebrations
+fire on server-confirmed results, and the generation overlay shows elapsed
+time and what a run does, never invented progress (the API reports nothing
+until a run ends; "Stop waiting" stops the wait, not the run). Simple
+entrances are CSS (`Reveal`, one shared IntersectionObserver); Motion for
+React (`motion`) is used for springs, exits, layout and SVG path drawing,
+with shared timing in `components/motion/presets.ts`. `MotionConfig
+reducedMotion="user"` plus a global CSS rule honour reduced motion; path
+drawing, bursts and springs check it too.
 
 **Saved lessons keep working.** Lessons saved before blocks existed have
 `concepts`, `activities` (placed by `afterConcept`) and `questions`;
@@ -170,6 +184,10 @@ Each run rebuilds the agent's context from there.
 - `src/components/LessonView.tsx` — renders a lesson's blocks in order, session bar, module finish
 - `src/components/lesson/` — one component per block kind (code, worked, reflect, dialogue, …)
 - `src/components/activities/` — one component per activity type
+- `src/components/motion/` — motion presets, primitives (Expand, ProgressFill,
+  CountUp, Burst), woven-thread visual
+- `src/components/app/CourseMap.tsx` — animated course journey map
+- `src/lib/expression.ts` — safe formula compiler for graph activities
 - `src/components/`, `src/hooks/` — UI pieces
 
 Bookmarks are stored in the browser (localStorage, per learner ID), matching

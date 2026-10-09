@@ -36,6 +36,12 @@ const SAMPLES: (Pick<LessonBrief, "topic" | "courseTitle" | "module"> & { kind: 
     module: { title: "The prisoner's dilemma", goal: "See why individually rational choices can lead to a worse outcome for everyone." },
   },
   {
+    kind: "physics",
+    topic: "Projectile motion",
+    courseTitle: "Projectile Motion",
+    module: { title: "Launch angle and range", goal: "Explain how launch angle changes a projectile's path and how far it lands." },
+  },
+  {
     kind: "mathematics",
     topic: "Probability",
     courseTitle: "Probability: Reasoning Under Uncertainty",

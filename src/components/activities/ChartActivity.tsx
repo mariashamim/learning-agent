@@ -1,6 +1,9 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useState } from "react";
+import { CountUp } from "../motion/primitives";
+import { spring } from "../motion/presets";
 import type { Activity } from "@/lib/activities";
 import { ActivityFrame } from "./ActivityFrame";
 
@@ -20,7 +23,7 @@ export function ChartActivity({ a, onDone }: { a: ChartData; onDone: () => void 
       {!revealed && <p className="mb-3 text-xs text-taupe">First, guess: which one is the biggest? Tap it.</p>}
       <div className="space-y-3">
         {a.bars.map((b, i) => {
-          const width = revealed ? Math.max(2, (b.value / max) * 100) : 0;
+          const share = revealed ? Math.max(0.02, b.value / max) : 0;
           return (
             <button
               key={i}
@@ -37,12 +40,23 @@ export function ChartActivity({ a, onDone }: { a: ChartData; onDone: () => void 
                   {b.label}
                   {revealed && i === top && <span className="ml-2 text-xs text-gold">★ biggest</span>}
                 </span>
-                <span className="font-display text-gold tabular-nums">{revealed ? `${fmt(b.value)}${a.unit ? ` ${a.unit}` : ""}` : "?"}</span>
+                <span className="font-display text-gold tabular-nums">
+                  {revealed ? (
+                    <>
+                      <CountUp value={b.value} active={revealed} format={fmt} />
+                      {a.unit ? ` ${a.unit}` : ""}
+                    </>
+                  ) : (
+                    "?"
+                  )}
+                </span>
               </div>
               <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-sand/10">
-                <div
-                  className="chart-bar h-full rounded-full bg-gradient-to-r from-violet via-magenta to-gold"
-                  style={{ width: `${width}%`, transitionDelay: `${i * 120}ms` }}
+                <motion.div
+                  className="h-full origin-left rounded-full bg-gradient-to-r from-violet via-magenta to-gold"
+                  initial={false}
+                  animate={{ scaleX: share }}
+                  transition={{ ...spring.gentle, delay: revealed ? i * 0.12 : 0 }}
                 />
               </div>
               {revealed && b.note && <p className="mt-1 text-xs text-taupe">{b.note}</p>}

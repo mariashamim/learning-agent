@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { checkProblem, parseNumber, type Block } from "@/lib/lessonBlocks";
+import { Burst } from "../motion/primitives";
 import { BlockFrame } from "./BlockFrame";
 import { rich } from "./rich";
 
@@ -77,11 +78,14 @@ export function ProblemBlock({ b, onDone }: { b: ProblemData; onDone: () => void
           />
           {b.unit && <span className="text-sm text-taupe">{b.unit}</span>}
         </div>
-        {!finished && (
-          <button type="submit" disabled={!value.trim()} className="btn-primary rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40">
-            Check
-          </button>
-        )}
+        <span className="relative">
+          <Burst trigger={solved ? "solved" : null} />
+          {!finished && (
+            <button type="submit" disabled={!value.trim()} className="btn-primary rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40">
+              Check
+            </button>
+          )}
+        </span>
       </form>
 
       <div aria-live="polite">

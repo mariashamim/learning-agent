@@ -16,6 +16,7 @@ export const ACTIVITY_META: Record<ActivityType, { label: string; icon: string }
   diagram: { label: "Interactive diagram", icon: "✳" },
   listen: { label: "Listen", icon: "♪" },
   sound: { label: "Play it", icon: "♫" },
+  graph: { label: "Shape the curve", icon: "∿" },
 };
 
 /** The shared frame: type badge, title, prompt, the activity, then the insight once done. */

@@ -1,61 +1,11 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
-
-const PHRASES = [
-  "Checking where you left off…",
-  "Planning your course…",
-  "Writing your next module…",
-  "Checking its quality…",
-  "Saving your progress…",
-];
 
 /** 2px indeterminate bar pinned to the top of the viewport. */
 export function TopProgressBar() {
   return (
     <div className="fixed inset-x-0 top-0 z-50 h-[2px] overflow-hidden bg-beige" role="progressbar" aria-label="Preparing lesson">
       <div className="progress-indeterminate h-full w-1/3 bg-gold" />
-    </div>
-  );
-}
-
-/** Three peach dots orbiting an invisible centre. */
-export function OrbitDots() {
-  return (
-    <span className="orbit" aria-hidden>
-      {[0, 1, 2].map((k) => (
-        <span key={k} style={{ "--k": k } as CSSProperties} />
-      ))}
-    </span>
-  );
-}
-
-/** Status line that cross-fades through the harness phases every 3s. */
-export function StatusCycle() {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const active = Math.floor(elapsed / 3) % PHRASES.length;
-
-  return (
-    <div className="mt-3 flex items-center gap-3 text-sm text-coffee">
-      <span className="grid flex-1" aria-live="polite">
-        {PHRASES.map((p, i) => (
-          <span
-            key={p}
-            className="status-phrase col-start-1 row-start-1"
-            data-active={i === active}
-            aria-hidden={i !== active}
-          >
-            {p}
-          </span>
-        ))}
-      </span>
-      <span className="font-mono text-xs tabular-nums text-taupe">{elapsed}s</span>
     </div>
   );
 }

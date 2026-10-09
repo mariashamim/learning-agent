@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Lesson } from "@/lib/lessonBlocks";
 import { normalizeLesson } from "@/lib/lessonDesign";
 import { legacyLesson, rawHistoryLesson, rawProgrammingLesson } from "@/lib/testFixtures";
+import { parseBindings, variablesAt } from "./lesson/CodeBlock";
 import { rich } from "./lesson/rich";
 import { LessonView } from "./LessonView";
 import type { View } from "./types";
@@ -95,5 +96,26 @@ describe("rich text", () => {
   it("renders `inline code` as code and leaves other text alone", () => {
     assert.equal(renderToStaticMarkup(<p>{rich("Use `for x in xs` here")}</p>), '<p>Use <code class="inline-code font-mono">for x in xs</code> here</p>');
     assert.equal(renderToStaticMarkup(<p>{rich("No code, <b>not html</b>")}</p>), "<p>No code, &lt;b&gt;not html&lt;/b&gt;</p>");
+  });
+});
+
+describe("code trace variables", () => {
+  it("parses bindings, keeping commas inside values and dropping trailing notes", () => {
+    assert.deepEqual(parseBindings('i = 2, total = [1, 2], name = "Ada" — 1 of 2 items'), [
+      { name: "i", value: "2" },
+      { name: "total", value: "[1, 2]" },
+      { name: "name", value: '"Ada"' },
+    ]);
+    assert.equal(parseBindings("names is unchanged"), null);
+  });
+
+  it("carries variables across steps and marks only real changes", () => {
+    const trace = [{ state: "total = 0" }, { state: "i = 0, total = 0" }, { state: "i = 1, total = 1" }, { state: "loop ends" }, { state: 'i = 1, total = 1 — unchanged' }];
+    assert.deepEqual(variablesAt(trace, 1), [
+      { name: "total", value: "0", changed: false },
+      { name: "i", value: "0", changed: true },
+    ]);
+    assert.deepEqual(variablesAt(trace, 2).map((v) => v.changed), [true, true]);
+    assert.deepEqual(variablesAt(trace, 4).map((v) => `${v.name}=${v.value}${v.changed ? "*" : ""}`), ["total=1", "i=1"]);
   });
 });

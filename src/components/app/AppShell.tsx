@@ -1,13 +1,16 @@
 "use client";
 
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CustomCursor } from "../CustomCursor";
 import { BookIcon, ChartIcon, HomeIcon, LibraryIcon } from "../Icons";
 import { LearnerPill } from "../LearnerPill";
-import { OrbitDots, StatusCycle, TopProgressBar } from "../LoadingIndicator";
+import { TopProgressBar } from "../LoadingIndicator";
+import { spring } from "../motion/presets";
+import { WovenThreads } from "../motion/WovenThreads";
 import { AppStateProvider, useAppState } from "./AppState";
 
 const NAV = [
@@ -119,45 +122,148 @@ function MobileNav() {
   );
 }
 
-/** Full-screen "tutor is working" state while a course or module is prepared. */
+// What a run does, in order. Shown as a description, not as progress: the
+// API reports nothing until the run is finished, so nothing here ticks off.
+const RUN_STEPS = {
+  plan: [
+    "Plans the course as levels of short modules",
+    "Writes the first module's lesson",
+    "A second model checks it, and it's revised if it falls short",
+  ],
+  module: [
+    "Looks at how your earlier checks went",
+    "Writes this module's lesson",
+    "A second model checks it, and it's revised if it falls short",
+  ],
+};
+const USUAL_SECONDS = 120;
+
+function useElapsedSeconds(since: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return Math.max(0, Math.floor((now - since) / 1000));
+}
+
+/**
+ * Full-screen "tutor is working" state. Honest about what it knows: the kind
+ * of run, how long it has taken, and that you can stop waiting.
+ */
 function BusyOverlay() {
   const { busy } = useAppState();
-  if (!busy) return null;
+  return <AnimatePresence>{busy && <BusyDialog key={busy.startedAt} busy={busy} />}</AnimatePresence>;
+}
+
+function BusyDialog({ busy }: { busy: NonNullable<ReturnType<typeof useAppState>["busy"]> }) {
+  const { cancelLearn } = useAppState();
+  const elapsed = useElapsedSeconds(busy.startedAt);
+  const stopRef = useRef<HTMLButtonElement>(null);
+  // Move focus into the dialog, and give it back to where it was on close.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    stopRef.current?.focus();
+    return () => previous?.focus?.();
+  }, []);
+  const minutes = Math.floor(elapsed / 60);
+  const clock = `${minutes}:${String(elapsed % 60).padStart(2, "0")}`;
+
   return (
-    <div className="busy-overlay fixed inset-0 z-50 flex items-center justify-center bg-ink/70 px-4" role="dialog" aria-modal="true" aria-label="Preparing your lesson">
-      <div className="animate-fade-in w-full max-w-md rounded-3xl border border-beige bg-paper p-8 text-center shadow-2xl">
-        <div className="busy-orb mx-auto mb-6" aria-hidden>
-          <span />
-          <span />
-          <span />
+    <motion.div
+      className="busy-overlay fixed inset-0 z-50 flex items-center justify-center bg-ink/75 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="busy-title"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.2 } }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") cancelLearn();
+      }}
+    >
+      <motion.div
+        className="w-full max-w-md overflow-hidden rounded-3xl border border-beige bg-paper shadow-2xl"
+        initial={{ opacity: 0, y: 18, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: spring.gentle }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+      >
+        <div className="relative h-36 bg-gradient-to-br from-violet/40 via-ink/60 to-magenta/30">
+          <WovenThreads className="absolute inset-0 h-full w-full" />
         </div>
-        <p className="font-display text-2xl text-sand">{busy.label}</p>
-        <p className="mt-2 text-sm text-taupe">Your tutor writes it, a second pass checks it, then it&rsquo;s yours.</p>
-        <div className="mt-6 flex items-center justify-center gap-3 text-left">
-          <OrbitDots />
-          <div className="min-w-0 [&>div]:mt-0">
-            <StatusCycle />
+        <div className="p-7">
+          <p id="busy-title" className="font-display text-2xl leading-snug text-sand">
+            {busy.label}
+          </p>
+          <p className="mt-1 text-sm text-taupe">Your tutor is working on it. This usually takes one to two minutes.</p>
+          <ol className="mt-5 space-y-2 text-sm text-sand/85">
+            {RUN_STEPS[busy.kind].map((step, i) => (
+              <motion.li
+                key={step}
+                className="flex gap-3"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0, transition: { delay: 0.15 + i * 0.08, ...spring.gentle } }}
+              >
+                <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-gold/40 text-[10px] text-gold">
+                  {i + 1}
+                </span>
+                {step}
+              </motion.li>
+            ))}
+          </ol>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-beige/60 pt-4">
+            <span className="text-xs text-taupe" aria-live="off">
+              <span className="font-mono tabular-nums text-sand">{clock}</span>
+              {elapsed > USUAL_SECONDS ? " · taking longer than usual" : " elapsed"}
+            </span>
+            <button
+              ref={stopRef}
+              type="button"
+              onClick={cancelLearn}
+              className="rounded-full border border-beige px-4 py-1.5 text-xs font-medium text-sand/85 hover:border-gold/60 hover:text-gold"
+            >
+              Stop waiting
+            </button>
           </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-taupe/80">
+            Stopping only stops the wait here. Your tutor may still finish, and the module will be ready when you come back.
+          </p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
 function ErrorBanner() {
-  const { error, clearError } = useAppState();
-  if (!error) return null;
+  const { error, clearError, retryLearn } = useAppState();
   return (
-    <div role="alert" className="animate-fade-in mx-auto mt-6 flex max-w-3xl items-start gap-3 rounded-2xl border border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200">
-      <span aria-hidden className="font-bold">!</span>
-      <div className="flex-1">
-        <p className="font-semibold">The lesson couldn&rsquo;t be prepared.</p>
-        <p className="mt-1 text-red-100/80">{error}</p>
-      </div>
-      <button type="button" onClick={clearError} className="rounded-lg px-2 py-1 text-xs text-red-100 hover:bg-red-500/20">
-        Dismiss
-      </button>
-    </div>
+    <AnimatePresence>
+      {error && (
+        <motion.div
+          role="alert"
+          className="mx-auto mt-6 flex max-w-3xl items-start gap-3 rounded-2xl border border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0, transition: spring.gentle }}
+          exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+        >
+          <span aria-hidden className="font-bold">!</span>
+          <div className="flex-1">
+            <p className="font-semibold">The lesson couldn&rsquo;t be prepared.</p>
+            <p className="mt-1 text-red-100/80">{error}</p>
+          </div>
+          <div className="flex flex-shrink-0 gap-1">
+            {retryLearn && (
+              <button type="button" onClick={retryLearn} className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-50 hover:bg-red-500/30">
+                Try again
+              </button>
+            )}
+            <button type="button" onClick={clearError} className="rounded-lg px-2 py-1 text-xs text-red-100 hover:bg-red-500/20">
+              Dismiss
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -184,8 +290,12 @@ function Shell({ children }: { children: ReactNode }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <AppStateProvider>
-      <Shell>{children}</Shell>
-    </AppStateProvider>
+    // reducedMotion="user": with the OS setting on, Motion drops transform and
+    // layout animation app-wide (opacity still fades); CSS has its own rule.
+    <MotionConfig reducedMotion="user">
+      <AppStateProvider>
+        <Shell>{children}</Shell>
+      </AppStateProvider>
+    </MotionConfig>
   );
 }

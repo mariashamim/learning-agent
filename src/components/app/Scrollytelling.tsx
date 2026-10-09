@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useScroll } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 const STEPS = [
@@ -16,6 +17,9 @@ const STEPS = [
 export function Scrollytelling() {
   const [active, setActive] = useState(0);
   const refs = useRef<(HTMLDivElement | null)[]>([]);
+  // How far through the steps the reader is: drives a thin rail beside them.
+  const stepsRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: stepsRef, offset: ["start 60%", "end 60%"] });
 
   useEffect(() => {
     const io = new IntersectionObserver(
@@ -39,7 +43,13 @@ export function Scrollytelling() {
         <div className="sticky top-16 z-10 h-[260px] self-start lg:top-24 lg:order-2 lg:h-[440px]">
           <StoryStage step={active} />
         </div>
-        <div className="lg:order-1">
+        <div ref={stepsRef} className="relative lg:order-1">
+          <span className="absolute top-0 bottom-0 -left-4 hidden w-px bg-sand/10 sm:block" aria-hidden />
+          <motion.span
+            className="absolute top-0 bottom-0 -left-4 hidden w-px origin-top bg-gold sm:block"
+            style={{ scaleY: scrollYProgress }}
+            aria-hidden
+          />
           {STEPS.map((s, i) => (
             <div
               key={s.title}
@@ -76,40 +86,52 @@ function StoryStage({ step }: { step: number }) {
           <path d="M80 110 l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4z" fill="#c88b00" className="art-twinkle art-delay-2" />
         </g>
 
-        {/* step 1: the module path */}
+        {/* step 1: the course path, in levels */}
         <g className="layer layer-1">
-          <path d="M70 300 C120 300 120 220 180 220 S240 140 300 140 S330 90 340 80" fill="none" stroke="#e1b983" strokeOpacity="0.5" strokeWidth="3" strokeDasharray="1" pathLength={1} className="path-draw" />
+          <rect x="40" y="200" width="160" height="150" rx="22" fill="#7a5498" fillOpacity="0.22" />
+          <rect x="200" y="50" width="170" height="150" rx="22" fill="#ad2f70" fillOpacity="0.2" />
+          <text x="56" y="226" fill="#c88b00" fontSize="12" fontWeight="700" letterSpacing="2">LEVEL 1</text>
+          <text x="216" y="76" fill="#c88b00" fontSize="12" fontWeight="700" letterSpacing="2">LEVEL 2</text>
+          <path d="M70 300 C120 300 120 250 160 250 S220 170 250 160 S320 110 340 100" fill="none" stroke="#e1b983" strokeOpacity="0.5" strokeWidth="3" strokeDasharray="1" pathLength={1} className="path-draw" />
           {[
             [70, 300],
-            [180, 220],
-            [300, 140],
-            [340, 80],
+            [160, 250],
+            [250, 160],
+            [340, 100],
           ].map(([x, y], i) => (
             <g key={i} className="node-pop" style={{ transitionDelay: `${200 + i * 180}ms`, transformOrigin: `${x}px ${y}px` }}>
               <circle cx={x} cy={y} r="20" fill={i === 0 ? "#c88b00" : "#2a1539"} stroke="#c88b00" strokeWidth="2" />
               <text x={x} y={y + 6} textAnchor="middle" fill={i === 0 ? "#150a1e" : "#e1b983"} fontSize="16" fontWeight="600">
-                {i + 1}
+                {(i % 2) + 1}
               </text>
             </g>
           ))}
         </g>
 
-        {/* step 2: a lesson card with quiz ticks */}
+        {/* step 2: a lesson made of different blocks, checks placed between them */}
         <g className="layer layer-2">
-          <rect x="90" y="70" width="220" height="260" rx="20" fill="#2a1539" stroke="#573a6c" strokeWidth="2" />
-          <rect x="114" y="98" width="120" height="14" rx="7" fill="#c88b00" />
-          {[130, 152, 174].map((y, i) => (
-            <rect key={y} x="114" y={y} width={150 - i * 24} height="9" rx="4.5" fill="#e1b983" opacity="0.5" />
+          <rect x="90" y="40" width="220" height="320" rx="20" fill="#2a1539" stroke="#573a6c" strokeWidth="2" />
+          <rect x="112" y="62" width="110" height="12" rx="6" fill="#c88b00" />
+          {/* a curve being reshaped */}
+          <rect x="112" y="88" width="176" height="74" rx="10" fill="#150a1e" />
+          <path d="M120 150 C150 150 170 96 200 96 S250 150 280 150" fill="none" stroke="#c88b00" strokeWidth="3" pathLength={1} strokeDasharray="1" className="path-draw" />
+          <g className="tick-in" style={{ transitionDelay: "450ms" }}>
+            <rect x="112" y="172" width="176" height="26" rx="9" fill="rgba(108,192,138,0.18)" />
+            <text x="124" y="190" fill="#c9f0d6" fontSize="14" fontWeight="700">✓</text>
+            <rect x="146" y="181" width="110" height="7" rx="3.5" fill="#e1b983" opacity="0.45" />
+          </g>
+          {/* a code trace with its current line lit */}
+          <rect x="112" y="208" width="176" height="70" rx="10" fill="#150a1e" />
+          {[220, 236, 252, 266].map((y, i) => (
+            <rect key={y} x={i === 2 ? 132 : 122} y={y} width={[120, 90, 100, 70][i]} height="7" rx="3.5" fill="#e1b983" opacity={i === 2 ? 0.95 : 0.35} />
           ))}
-          {[220, 258, 296].map((y, i) => (
-            <g key={y} className="tick-in" style={{ transitionDelay: `${300 + i * 220}ms` }}>
-              <rect x="114" y={y - 14} width="172" height="28" rx="10" fill={i === 1 ? "rgba(248,113,113,0.18)" : "rgba(108,192,138,0.18)"} />
-              <text x="128" y={y + 5} fill={i === 1 ? "#fecaca" : "#c9f0d6"} fontSize="15" fontWeight="700">
-                {i === 1 ? "✗" : "✓"}
-              </text>
-              <rect x="150" y={y - 4} width="110" height="8" rx="4" fill="#e1b983" opacity="0.45" />
-            </g>
-          ))}
+          <rect x="112" y="247" width="176" height="17" fill="#c88b00" opacity="0.18" className="tick-in" style={{ transitionDelay: "650ms" }} />
+          <g className="tick-in" style={{ transitionDelay: "850ms" }}>
+            <rect x="112" y="288" width="176" height="26" rx="9" fill="rgba(108,192,138,0.18)" />
+            <text x="124" y="306" fill="#c9f0d6" fontSize="14" fontWeight="700">✓</text>
+            <rect x="146" y="297" width="90" height="7" rx="3.5" fill="#e1b983" opacity="0.45" />
+          </g>
+          <rect x="112" y="324" width="80" height="18" rx="9" fill="#c88b00" opacity="0.8" className="tick-in" style={{ transitionDelay: "1050ms" }} />
         </g>
 
         {/* step 3: the garden grows, the ring fills */}

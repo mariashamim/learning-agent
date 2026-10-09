@@ -1,6 +1,8 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { spring } from "../motion/presets";
 import type { Activity } from "@/lib/activities";
 import { ActivityFrame } from "./ActivityFrame";
 
@@ -9,6 +11,8 @@ type TimelineData = Extract<Activity, { type: "timeline" }>;
 /** A visual timeline: tap markers or press play to walk through the events. */
 export function TimelineActivity({ a, onDone }: { a: TimelineData; onDone: () => void }) {
   const [active, setActive] = useState(0);
+  // +1 moving forward in time, -1 back: the detail slides the same way.
+  const [direction, setDirection] = useState(1);
   const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
   const [playing, setPlaying] = useState(false);
   const allSeen = seen.size === a.events.length;
@@ -16,6 +20,7 @@ export function TimelineActivity({ a, onDone }: { a: TimelineData; onDone: () =>
   const last = a.events.length - 1;
 
   function go(i: number) {
+    setDirection(i >= active ? 1 : -1);
     setActive(i);
     const next = new Set(seen).add(i);
     setSeen(next);
@@ -38,7 +43,12 @@ export function TimelineActivity({ a, onDone }: { a: TimelineData; onDone: () =>
       <div className="overflow-x-auto pb-2">
         <div className="relative min-w-[480px] px-4 pt-2">
           <div className="absolute top-[26px] right-6 left-6 h-1 rounded-full bg-sand/15" />
-          <div className="timeline-fill absolute top-[26px] left-6 h-1 rounded-full bg-gradient-to-r from-violet via-magenta to-gold" style={{ width: `calc((100% - 3rem) * ${progress / 100})` }} />
+          <motion.div
+            className="timeline-fill absolute top-[26px] right-6 left-6 h-1 origin-left rounded-full bg-gradient-to-r from-violet via-magenta to-gold"
+            initial={false}
+            animate={{ scaleX: progress / 100 }}
+            transition={spring.gentle}
+          />
           <ol className="relative flex justify-between">
             {a.events.map((ev, i) => (
               <li key={i} className="flex w-0 flex-1 flex-col items-center">
@@ -58,10 +68,27 @@ export function TimelineActivity({ a, onDone }: { a: TimelineData; onDone: () =>
           </ol>
         </div>
       </div>
-      <div key={active} className="timeline-detail mt-4 rounded-2xl border border-beige bg-ink/40 p-5">
-        <p className="text-xs font-semibold tracking-[0.14em] text-gold uppercase">{e.marker}</p>
-        <p className="font-display mt-1 text-xl text-sand">{e.title}</p>
-        {e.detail && <p className="mt-2 text-sm leading-relaxed text-sand/85">{e.detail}</p>}
+      <div className="relative mt-4 overflow-hidden" aria-live="polite">
+        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+          <motion.div
+            key={active}
+            custom={direction}
+            className="rounded-2xl border border-beige bg-ink/40 p-5"
+            variants={{
+              enter: (d: number) => ({ x: d * 48, opacity: 0 }),
+              center: { x: 0, opacity: 1 },
+              leave: (d: number) => ({ x: d * -48, opacity: 0 }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="leave"
+            transition={spring.gentle}
+          >
+            <p className="text-xs font-semibold tracking-[0.14em] text-gold uppercase">{e.marker}</p>
+            <p className="font-display mt-1 text-xl text-sand">{e.title}</p>
+            {e.detail && <p className="mt-2 text-sm leading-relaxed text-sand/85">{e.detail}</p>}
+          </motion.div>
+        </AnimatePresence>
       </div>
       <div className="mt-4 flex items-center gap-3">
         <button type="button" onClick={() => go(Math.max(0, active - 1))} disabled={active === 0} className="rounded-xl border border-beige px-3 py-2 text-sm text-sand disabled:opacity-30">

@@ -1,17 +1,27 @@
 "use client";
 
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useState, useSyncExternalStore, type CSSProperties } from "react";
 import { LogoMark, Wordmark } from "@/components/app/AppShell";
 import { useAppState } from "@/components/app/AppState";
+import { LoomHero } from "@/components/app/LoomHero";
 import { TopicArt } from "@/components/app/TopicArt";
 import { ArrowRightIcon, ArrowUpRightIcon, SparkleIcon } from "@/components/Icons";
 import { MagneticButton } from "@/components/MagneticButton";
 import { SplitHeading, charCount } from "@/components/SplitHeading";
 import { greeting } from "@/components/stats";
 import { TopicInput } from "@/components/TopicInput";
+import { inViewOnce, rise, spring, staggerParent } from "@/components/motion/presets";
 
 const SUGGESTIONS = ["Stoicism", "Black holes", "Game theory", "Jazz harmony"];
+
+// What Weavr actually does, in three lines.
+const BENEFITS = [
+  { icon: "◇", title: "A path, not a pile", body: "Your topic becomes a course in levels, each a few short modules that build on the last." },
+  { icon: "∿", title: "Lessons built for the topic", body: "Trace code, reshape a curve, weigh evidence: each lesson teaches the way its subject is learned." },
+  { icon: "↺", title: "It remembers you", body: "Checks are graded as you go, and the next module adapts to what you got wrong." },
+];
 
 // Entrance timeline (ms): headline types in, then the paragraph, then the search bar.
 const HEADING = "What do you want to learn today?";
@@ -22,6 +32,7 @@ const noSubscribe = () => () => {};
 export default function Home() {
   const { learn, busy, courses } = useAppState();
   const [topic, setTopic] = useState("");
+  const [focused, setFocused] = useState(false);
   // Client-only: the server doesn't know the learner's local hour.
   const hello = useSyncExternalStore(noSubscribe, () => greeting(new Date().getHours()), () => "Welcome");
 
@@ -30,7 +41,8 @@ export default function Home() {
   const done = current ? current.modules.filter((m) => m.lesson?.completed).length : 0;
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-4 py-14 sm:px-6 lg:min-h-screen">
+    <main className="relative isolate mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center px-4 py-14 sm:px-6 lg:min-h-screen">
+      <LoomHero />
       {/* Logo and title */}
       <div className="intro flex items-center gap-4" style={intro(0)}>
         <LogoMark size={64} />
@@ -52,23 +64,34 @@ export default function Home() {
         className="font-display mt-4 text-[44px] leading-[1.04] font-medium tracking-tight text-sand sm:text-6xl"
       />
       <p className="intro mt-5 max-w-xl text-base leading-relaxed text-taupe" style={intro(HEADING_END)}>
-        Name any topic. Your tutor plans a short course, writes each ten-minute module, checks it
-        before you see it, and remembers where you left off.
+        Name any topic. Your tutor plans a course in levels, writes each ten-minute module, checks
+        it before you see it, and remembers where you left off.
       </p>
 
       {/* Search bar */}
-      <form
-        className="intro ask-card mt-9 rounded-2xl border border-beige bg-paper/90 p-2.5"
-        style={intro(HEADING_END + 120)}
+      <div className="intro mt-9" style={intro(HEADING_END + 120)}>
+      <motion.form
+        className="ask-card rounded-2xl border border-beige bg-paper/90 p-2.5 backdrop-blur-sm"
+        data-focused={focused || undefined}
+        animate={{ y: focused ? -3 : 0, scale: focused ? 1.01 : 1 }}
+        transition={spring.gentle}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           learn(topic);
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold">
+          <motion.span
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"
+            animate={{ rotate: focused ? 90 : 0, scale: topic.trim() ? 1.08 : 1 }}
+            transition={spring.snappy}
+          >
             <SparkleIcon size={18} />
-          </span>
+          </motion.span>
           <TopicInput value={topic} onChange={setTopic} bare />
           <MagneticButton
             type="submit"
@@ -79,7 +102,8 @@ export default function Home() {
             <ArrowUpRightIcon size={16} strokeWidth={2.2} className="btn-arrow" />
           </MagneticButton>
         </div>
-      </form>
+      </motion.form>
+      </div>
 
       <div className="intro mt-4 flex flex-wrap items-center gap-2" style={intro(HEADING_END + 200)}>
         <span className="text-xs text-taupe">Try</span>
@@ -94,6 +118,25 @@ export default function Home() {
           </button>
         ))}
       </div>
+
+      {/* What it does */}
+      <motion.ul
+        className="mt-12 grid gap-3 sm:grid-cols-3"
+        variants={staggerParent(0.1, 0.1)}
+        initial="hidden"
+        whileInView="show"
+        viewport={inViewOnce}
+      >
+        {BENEFITS.map((b) => (
+          <motion.li key={b.title} variants={rise} className="rounded-2xl border border-beige/70 bg-paper/50 p-4 backdrop-blur-sm">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold/15 text-gold" aria-hidden>
+              {b.icon}
+            </span>
+            <p className="mt-3 text-sm font-semibold text-sand">{b.title}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-taupe">{b.body}</p>
+          </motion.li>
+        ))}
+      </motion.ul>
 
       {/* Pick up where you left off */}
       {current && (

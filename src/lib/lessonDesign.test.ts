@@ -194,6 +194,17 @@ describe("toModelFormat (what the reviser sees)", () => {
       { type: "diagram", title: "d", prompt: "", reveal: "", afterConcept: 0, nodes: ["a", "b", "c"].map((l) => ({ label: l, detail: "" })), edges: [{ from: 0, to: 1, label: "x" }, { from: 1, to: 2, label: "y" }] },
       { type: "listen", title: "l", prompt: "", reveal: "", afterConcept: 0, script: "one two three four five six seven eight nine ten eleven twelve thirteen" },
       { type: "sound", title: "n", prompt: "", reveal: "", afterConcept: 0, clips: [{ label: "C", notes: ["C4", "E4", "G4"], detail: "" }] },
+      {
+        type: "graph",
+        title: "g",
+        prompt: "",
+        reveal: "",
+        afterConcept: 0,
+        expression: "k*x^2",
+        slider: { label: "Stretch", min: 1, max: 3, step: 0.5, unit: "", initial: 1 },
+        bands: [{ upTo: 2, title: "gentle", detail: "" }, { upTo: 3, title: "steep", detail: "" }],
+        axis: { xLabel: "x", yLabel: "y", xMin: -3, xMax: 3, yMin: 0, yMax: 20 },
+      },
     ] as Lesson["activities"];
     for (const a of all!) {
       const withOne: Lesson = { ...lesson, activities: [a], blocks: [...lesson.blocks!.filter((b) => b.kind !== "activity"), { kind: "activity", ref: 0 }] };

@@ -1,10 +1,13 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { APPROACHES, isInteractive, lessonBlocks } from "@/lib/lessonBlocks";
 import { CoursePath } from "./CoursePath";
 import { HarnessTrace } from "./HarnessTrace";
 import { LessonBlock } from "./lesson/LessonBlock";
+import { Burst, ProgressFill } from "./motion/primitives";
+import { spring } from "./motion/presets";
 import { Reveal } from "./Reveal";
 import { ScoreBadge } from "./ScoreBadge";
 import type { Answer, Course, PrefetchState, QuizResult, View } from "./types";
@@ -271,10 +274,51 @@ function QuizOutcome({
   const finishedCourse = latest?.status === "completed";
   const nextIndex = latest?.currentModule ?? null;
   const next = latest && nextIndex !== null && !finishedCourse ? latest.modules[nextIndex] : null;
+  const saved = submission.state === "done";
+  // Levels the server now reports finished that weren't before this save.
+  const before = course ? levelsOf(course) : [];
+  const finishedLevels =
+    saved && latest && course
+      ? levelsOf(latest)
+          .map((l, i) => ({ l, n: i + 1 }))
+          .filter(({ l }) => !l.legacy && l.status === "done" && before.find((b) => b.id === l.id)?.status !== "done")
+      : [];
+  const doneModules = latest ? latest.modules.filter((m) => m.lesson?.completed).length : 0;
 
   return (
-    <div className="animate-fade-in mt-6 rounded-2xl border border-gold/30 bg-ink px-6 py-5 text-sand">
+    <motion.div
+      className="relative mt-6 rounded-2xl border border-gold/30 bg-ink px-6 py-5 text-sand"
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={spring.gentle}
+    >
+      <Burst trigger={saved && submission.result.firstCompletion ? "saved" : null} />
       <p className="font-display text-lg">{scoreLine}</p>
+      {finishedLevels.map(({ l, n }) => (
+        <motion.div
+          key={l.id}
+          className="relative mt-3 flex items-center gap-3 rounded-xl border border-gold/50 bg-gold/15 px-4 py-3"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ ...spring.bouncy, delay: 0.3 }}
+          role="status"
+        >
+          <Burst trigger={l.id} />
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold font-display text-ink">{n}</span>
+          <span>
+            <span className="block text-xs font-semibold tracking-[0.16em] text-gold uppercase">Level {n} complete</span>
+            <span className="block text-sm text-sand">{l.title}</span>
+          </span>
+        </motion.div>
+      ))}
+      {saved && latest && (
+        <div className="mt-3 flex items-center gap-3">
+          <ProgressFill value={doneModules / latest.modules.length} className="flex-1" label="Course progress" />
+          <span className="text-xs tabular-nums text-peach/70">
+            {doneModules}/{latest.modules.length} modules
+          </span>
+        </div>
+      )}
 
       {submission.state === "saving" && <p className="mt-2 text-sm text-peach/70">Saving your progress…</p>}
 
@@ -327,7 +371,7 @@ function QuizOutcome({
       {submission.state === "done" && !latest && (
         <p className="mt-2 text-sm text-peach/80">Search another topic to keep going.</p>
       )}
-    </div>
+    </motion.div>
   );
 }
 

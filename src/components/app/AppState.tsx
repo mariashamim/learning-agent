@@ -136,7 +136,21 @@ function readBookmarksRaw(learnerId: string) {
 
 // ---------- context ----------
 
-type Busy = { topic: string; label: string };
+/**
+ * A tutor run in progress. The API reports nothing until it finishes, so the
+ * UI knows only what kind of run it is and how long it has taken: no stages.
+ */
+type Busy = { topic: string; label: string; kind: "plan" | "module"; startedAt: number };
+
+/** Rejects with an AbortError when `signal` aborts, without cancelling `promise` itself. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("Stopped waiting", "AbortError"));
+    if (signal.aborted) return onAbort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
 
 type AppStateValue = {
   learnerId: string;
@@ -147,6 +161,10 @@ type AppStateValue = {
   busy: Busy | null;
   error: string;
   clearError: () => void;
+  /** Stops waiting for the current tutor run (the server may still finish it). */
+  cancelLearn: () => void;
+  /** Re-runs the request that last failed, if any. */
+  retryLearn: (() => void) | null;
   /** Runs the tutor for a topic, then opens the module (or the course page). */
   learn: (topic: string, landing?: "module" | "course") => Promise<void>;
   submitQuiz: (lessonId: number, answers: Answer[]) => Promise<QuizResult>;
@@ -177,6 +195,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<Busy | null>(null);
   const [error, setError] = useState("");
+  const [failed, setFailed] = useState<{ topic: string; landing: "module" | "course" } | null>(null);
+  const runAbort = useRef<AbortController | null>(null);
   const [runs, setRuns] = useState<Record<string, ModuleRun>>({});
   // Next modules being written in the background, keyed by topic. A click on
   // "Start Module N" awaits the same request instead of starting a second one.
@@ -274,16 +294,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const existing = courseFor(topic);
     setBusy({
       topic,
+      kind: existing ? "module" : "plan",
+      startedAt: Date.now(),
       label: existing
         ? `Preparing ${moduleLabel(levelsOf(existing), Math.min(existing.currentModule, existing.modules.length - 1))} of ${existing.title}`
         : `Planning a course on ${topic.trim()}`,
     });
     setError("");
+    setFailed(null);
+    const abort = new AbortController();
+    runAbort.current = abort;
     const prefetched = prefetches.current.get(key);
     prefetches.current.delete(key);
     setPrefetch(key, null);
     try {
-      const data = prefetched ? await prefetched.catch(() => requestLearn(topic)) : await requestLearn(topic);
+      const request = prefetched ? prefetched.catch(() => requestLearn(topic)) : requestLearn(topic);
+      const data = await untilAborted(request, abort.signal);
       rememberRun(data);
       await refresh();
       if (data.kind === "course_complete" || landing === "course") {
@@ -292,8 +318,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         router.push(`/courses/${data.course.id}/${data.moduleIndex + 1}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // The server keeps going: whatever it finishes is saved and shows up
+        // on the next visit (an unfinished module resumes without new work).
+        setTimeout(() => refresh(), 30_000);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+        setFailed({ topic, landing });
+      }
     } finally {
+      runAbort.current = null;
       setBusy(null);
     }
   };
@@ -354,7 +388,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     refresh,
     busy,
     error,
-    clearError: () => setError(""),
+    clearError: () => {
+      setError("");
+      setFailed(null);
+    },
+    cancelLearn: () => runAbort.current?.abort(),
+    retryLearn: failed && !busy ? () => learn(failed.topic, failed.landing) : null,
     learn,
     submitQuiz,
     prefetchState: (topic) => prefetching[topicKey(topic)],

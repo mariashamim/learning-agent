@@ -343,34 +343,6 @@ html.cursor-visible .cursor-glow {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-.orbit {
-  position: relative;
-  display: inline-block;
-  width: 22px;
-  height: 22px;
-  animation: spin 1.2s linear infinite;
-}
-.orbit > span {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
-  background: var(--peach);
-  box-shadow: 0 0 0 1px rgba(189, 158, 133, 0.4);
-  transform: rotate(calc(var(--k) * 120deg)) translateY(-7px);
-}
-
-.status-phrase {
-  opacity: 0;
-  transition: opacity 500ms ease;
-}
-.status-phrase[data-active="true"] {
-  opacity: 1;
-}
-
 @keyframes shimmer {
   from { background-position: -400px 0; }
   to { background-position: 400px 0; }
@@ -426,7 +398,7 @@ html.cursor-visible .cursor-glow {
   border-color: #f87171;
   background-color: rgba(248, 113, 113, 0.12);
   color: #fecaca;
-  animation: shake 250ms ease-in-out;
+  animation: soft-miss 420ms ease-out;
 }
 .quiz-option[data-state="wrong"] .quiz-letter {
   border-color: #f87171;
@@ -664,8 +636,8 @@ html.cursor-visible .cursor-glow {
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .ask-card:focus-within {
-  border-color: rgba(0, 0, 0, 0.45);
-  box-shadow: 0 0 0 4px rgba(200, 139, 0, 0.25), 0 18px 40px -24px rgba(0, 0, 0, 0.45);
+  border-color: rgba(200, 139, 0, 0.7);
+  box-shadow: 0 0 0 4px rgba(200, 139, 0, 0.18), 0 0 40px -6px rgba(200, 139, 0, 0.35), 0 24px 50px -24px rgba(0, 0, 0, 0.6);
 }
 .topic-input-bare {
   border: 0;
@@ -782,42 +754,10 @@ html.cursor-visible .cursor-glow {
   box-shadow: inset 3px 0 0 var(--gold);
 }
 
-/* ---- busy overlay orb ---- */
-.busy-overlay {
-  animation: fade-in 250ms ease-out both;
-}
-.busy-orb {
-  position: relative;
-  width: 84px;
-  height: 84px;
-}
-.busy-orb span {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  border-top-color: var(--gold);
-  animation: spin 1.4s linear infinite;
-}
-.busy-orb span:nth-child(2) {
-  inset: 12px;
-  border-top-color: var(--magenta);
-  animation-duration: 1.9s;
-  animation-direction: reverse;
-}
-.busy-orb span:nth-child(3) {
-  inset: 28px;
-  border: 0;
-  background: var(--gold);
-  box-shadow: 0 0 24px var(--gold);
-  animation: art-pulse 1.6s ease-in-out infinite;
-}
-
 /* ---- cards ---- */
 .course-tile,
 .catalog-tile,
-.continue-card,
-.path-item {
+.continue-card {
   transition:
     transform 300ms var(--ease-out-expo),
     border-color 200ms ease,
@@ -861,44 +801,7 @@ html.cursor-visible .cursor-glow {
   border: 2px dashed rgba(200, 139, 0, 0.55);
   animation: spin 24s linear infinite;
 }
-.module-path::before {
-  content: "";
-  position: absolute;
-  top: 34px;
-  bottom: 34px;
-  left: 41px;
-  width: 2px;
-  background: linear-gradient(var(--gold) var(--path-progress, 0%), var(--beige) var(--path-progress, 0%));
-}
-.path-node {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  height: 44px;
-  width: 44px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  font-weight: 700;
-  border: 2px solid var(--beige);
-  background: var(--paper);
-  color: var(--taupe);
-}
-.path-node[data-state="done"] {
-  border-color: var(--gold);
-  background: var(--gold);
-  color: var(--ink);
-}
-.path-node[data-state="current"] {
-  border-color: var(--gold);
-  color: var(--gold);
-  animation: node-glow 2s ease-in-out infinite;
-}
-@keyframes node-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(200, 139, 0, 0.5); }
-  50% { box-shadow: 0 0 0 10px rgba(200, 139, 0, 0); }
-}
+
 
 /* ---- progress ---- */
 .progress-fill {
@@ -1052,7 +955,8 @@ html.cursor-visible .cursor-glow {
   stroke-dashoffset: 1;
   transition: stroke-dashoffset 1400ms ease-out;
 }
-.story-stage[data-step="1"] .path-draw { stroke-dashoffset: 0; }
+.story-stage[data-step="1"] .path-draw,
+.story-stage[data-step="2"] .path-draw { stroke-dashoffset: 0; }
 .story-stage .node-pop {
   transform: scale(0);
   transition: transform 500ms var(--ease-spring);
@@ -1106,7 +1010,6 @@ html.cursor-visible .cursor-glow {
 }
 .activity-reveal,
 .activity-feedback,
-.timeline-detail,
 .diagram-panel,
 .sim-outcome,
 .story-beat {
@@ -1145,7 +1048,7 @@ html.cursor-visible .cursor-glow {
   border-color: #f87171;
   background: rgba(248, 113, 113, 0.12);
   color: #fecaca;
-  animation: shake 250ms ease-in-out;
+  animation: soft-miss 420ms ease-out;
 }
 .choice-option:disabled[data-state="idle"] {
   opacity: 0.5;
@@ -1174,7 +1077,7 @@ html.cursor-visible .cursor-glow {
 .sort-chip[data-state="bad"] {
   border-color: #f87171;
   background: rgba(248, 113, 113, 0.14);
-  animation: shake 250ms ease-in-out;
+  animation: soft-miss 420ms ease-out;
 }
 .sort-bucket {
   transition: border-color 200ms ease, background-color 200ms ease;
@@ -1206,7 +1109,6 @@ html.cursor-visible .cursor-glow {
 
 /* timeline */
 .timeline-fill {
-  transition: width 700ms var(--ease-out-expo);
   box-shadow: 0 0 12px rgba(200, 139, 0, 0.6);
 }
 .timeline-dot {
@@ -1228,9 +1130,6 @@ html.cursor-visible .cursor-glow {
 }
 
 /* chart */
-.chart-bar {
-  transition: width 1000ms var(--ease-out-expo);
-}
 
 /* simulation */
 .sim-needle {
@@ -1396,9 +1295,28 @@ html.cursor-visible .cursor-glow {
   border-left: 3px solid transparent;
   transition: background-color 250ms ease, border-color 250ms ease;
 }
-.code-line[data-active] {
+.code-line {
+  position: relative;
+}
+/* The trace highlight glides between lines (a Motion layout animation). */
+.code-highlight {
+  position: absolute;
+  inset: 0 0 0 -3px;
   background: rgba(200, 139, 0, 0.16);
-  border-left-color: var(--gold);
+  border-left: 3px solid var(--gold);
+  pointer-events: none;
+}
+.code-line > :not(.code-highlight) {
+  position: relative;
+}
+.trace-var {
+  border-color: rgba(87, 58, 108, 0.8);
+  background: rgba(21, 10, 30, 0.45);
+  transition: border-color 300ms ease, background-color 300ms ease;
+}
+.trace-var[data-changed] {
+  border-color: rgba(200, 139, 0, 0.6);
+  background: rgba(200, 139, 0, 0.12);
 }
 .code-no {
   width: 2.75rem;
@@ -1477,4 +1395,177 @@ html.cursor-visible .cursor-glow {
   font-size: 0.88em;
   font-style: normal;
   color: #f0d9a8;
+}
+
+/* ============ Answer feedback ============ */
+/* A miss gets a soft red ring that fades: clear, but no shaking. */
+@keyframes soft-miss {
+  from { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.5); }
+  to { box-shadow: 0 0 0 7px rgba(248, 113, 113, 0); }
+}
+/* A right answer glows once. */
+@keyframes right-glow {
+  0% { box-shadow: 0 0 0 0 rgba(108, 192, 138, 0.55); }
+  60% { box-shadow: 0 0 22px 2px rgba(108, 192, 138, 0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(108, 192, 138, 0); }
+}
+.quiz-option[data-state="correct"][data-picked] {
+  animation: pop 250ms ease-out, right-glow 900ms ease-out;
+}
+.choice-option[data-state="good"] {
+  animation: right-glow 900ms ease-out;
+}
+
+/* ============ Woven threads (hero, loading) ============ */
+.woven { overflow: visible; }
+.woven-warp {
+  stroke: rgba(225, 185, 131, 0.12);
+  stroke-width: 1;
+}
+.woven-weft {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.woven-strand {
+  animation: woven-drift var(--strand-speed, 8s) ease-in-out var(--strand-delay, 0s) infinite alternate;
+}
+@keyframes woven-drift {
+  from { transform: translateY(-3px); }
+  to { transform: translateY(3px); }
+}
+.woven-shuttle {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 9 91;
+  filter: drop-shadow(0 0 4px rgba(200, 139, 0, 0.8));
+  animation: woven-shuttle var(--shuttle-speed, 6s) linear var(--shuttle-delay, 0s) infinite;
+}
+@keyframes woven-shuttle {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+.woven-glow {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: woven-breathe 6s ease-in-out infinite alternate;
+}
+@keyframes woven-breathe {
+  from { opacity: 0.7; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .woven-shuttle { stroke-dasharray: none; opacity: 0; }
+}
+
+/* ============ Course journey map ============ */
+.level-section[data-tone="violet"] {
+  background: radial-gradient(120% 70% at 0% 0%, rgba(122, 84, 152, 0.28), transparent 60%), rgba(42, 21, 57, 0.45);
+}
+.level-section[data-tone="magenta"] {
+  background: radial-gradient(120% 70% at 100% 0%, rgba(173, 47, 112, 0.22), transparent 60%), rgba(42, 21, 57, 0.45);
+}
+.level-section[data-level-status="done"] {
+  border-color: rgba(200, 139, 0, 0.45);
+}
+.map-trail {
+  fill: none;
+  stroke: rgba(225, 185, 131, 0.28);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.map-trail-done {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(200, 139, 0, 0.55));
+}
+.map-node {
+  border: 2px solid var(--beige);
+  background: var(--paper);
+  color: var(--taupe);
+  box-shadow: 0 6px 0 rgba(21, 10, 30, 0.6);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+.map-node[data-state="done"] {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--ink);
+  box-shadow: 0 6px 0 #8a5f00;
+}
+.map-node[data-state="current"] {
+  border-color: var(--gold);
+  background: radial-gradient(circle at 35% 30%, #3b2050, var(--paper));
+  color: var(--gold);
+  box-shadow: 0 6px 0 rgba(200, 139, 0, 0.35), 0 0 24px rgba(200, 139, 0, 0.25);
+}
+.map-node[data-state="locked"] {
+  border-style: dashed;
+  opacity: 0.75;
+}
+.map-node[data-selected] {
+  border-color: var(--sand);
+}
+.map-node:focus-visible {
+  outline: 3px solid var(--sand);
+  outline-offset: 4px;
+}
+/* The one ambient motion on the map: the module you're on breathes. */
+.map-node-ring {
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  border: 2px solid rgba(200, 139, 0, 0.55);
+  animation: node-breathe 2.4s ease-in-out infinite;
+}
+@keyframes node-breathe {
+  0%, 100% { transform: scale(0.94); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 0.25; }
+}
+
+/* Diagram: a pulse runs along a selected node's links, from cause to effect. */
+.diagram-flow {
+  stroke: #ffd36b;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 8 92;
+  filter: drop-shadow(0 0 3px rgba(255, 211, 107, 0.9));
+  animation: diagram-flow 1.4s linear infinite;
+  pointer-events: none;
+}
+@keyframes diagram-flow {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .diagram-flow { display: none; }
+}
+
+/* ============ Graph activity ============ */
+.graph-axis { stroke: rgba(225, 185, 131, 0.3); stroke-width: 1; }
+.graph-tick { fill: var(--taupe); font-size: 10px; font-family: var(--font-mono); }
+.graph-label { fill: var(--sand); font-size: 11px; }
+.graph-ghost {
+  fill: none;
+  stroke: rgba(215, 155, 208, 0.45);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 5;
+}
+.graph-curve {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(200, 139, 0, 0.45));
+}
+
+/* Home backdrop: threads fade out toward the text and the bottom (masks, not
+   painted overlays, so the page gradient shows through). */
+.loom-hero {
+  -webkit-mask-image: linear-gradient(to right, transparent 20%, #000 70%), linear-gradient(to bottom, #000 55%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 20%, #000 70%), linear-gradient(to bottom, #000 55%, transparent);
+  mask-composite: intersect;
 }

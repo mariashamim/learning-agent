@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { Block } from "@/lib/lessonBlocks";
+import { AnimatePresence, motion } from "motion/react";
+import { useId, useState } from "react";
+import type { Block, TraceStep } from "@/lib/lessonBlocks";
+import { spring } from "../motion/presets";
+import { Burst } from "../motion/primitives";
 import { BlockFrame } from "./BlockFrame";
 import { rich } from "./rich";
 
@@ -30,6 +33,8 @@ function tint(line: string) {
 
 function CodeWindow({ code, language, active }: { code: string; language: string; active?: number }) {
   const lines = code.split("\n");
+  // One highlight per window that glides from line to line as the trace runs.
+  const highlightId = useId();
   return (
     <div className="code-window" role="figure" aria-label={`${language} code, ${lines.length} lines`}>
       <div className="code-bar" aria-hidden>
@@ -41,6 +46,7 @@ function CodeWindow({ code, language, active }: { code: string; language: string
       <pre className="font-mono">
         {lines.map((l, i) => (
           <div key={i} className="code-line" data-active={active === i + 1 || undefined} aria-current={active === i + 1 ? "step" : undefined}>
+            {active === i + 1 && <motion.span layoutId={highlightId} className="code-highlight" transition={spring.gentle} aria-hidden />}
             <span className="code-no" aria-hidden>
               {i + 1}
             </span>
@@ -82,7 +88,8 @@ function ChoiceCode({ b, onDone }: { b: CodeData; onDone: () => void }) {
       takeawayLabel="Why"
     >
       <CodeWindow code={b.code} language={b.language} />
-      <div className="mt-4 grid gap-2.5">
+      <div className="relative mt-4 grid gap-2.5">
+        <Burst trigger={solved ? "solved" : null} />
         {b.options.map((o, i) => {
           const chosen = tried.includes(i);
           const state = chosen ? (o.correct ? "good" : "bad") : "idle";
@@ -164,15 +171,7 @@ function TraceCode({ b, onDone }: { b: CodeData; onDone: () => void }) {
               Step {step + 1} of {b.trace.length} · line {current.line}
             </p>
             <p className="mt-1 text-sm leading-relaxed text-sand">{rich(current.note)}</p>
-            {current.state && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {current.state.split(/,\s*(?![^()[\]{}]*[)\]}])/).map((v, i) => (
-                  <span key={i} className="font-mono rounded-lg border border-gold/30 bg-gold/10 px-2.5 py-1 text-xs text-sand">
-                    {v.trim()}
-                  </span>
-                ))}
-              </div>
-            )}
+            {current.state && <TraceState trace={b.trace} step={step} />}
           </>
         ) : (
           <p className="text-sm text-taupe">Before you start: what do you expect each variable to be at the end? Then step through and check.</p>
@@ -192,5 +191,96 @@ function TraceCode({ b, onDone }: { b: CodeData; onDone: () => void }) {
         )}
       </div>
     </BlockFrame>
+  );
+}
+
+// ---------- variables during a trace ----------
+
+type Binding = { name: string; value: string };
+
+/** Splits on commas that aren't inside brackets or quotes. */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === quote && text[i - 1] !== "\\") quote = null;
+    } else if (c === '"' || c === "'") quote = c;
+    else if ("([{".includes(c)) depth++;
+    else if (")]}".includes(c)) depth = Math.max(0, depth - 1);
+    else if (c === "," && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+/** Splits "i = 2, total = [1, 2]" into bindings; null if it isn't that shape. Trailing "— notes" are dropped. */
+export function parseBindings(state: string): Binding[] | null {
+  const parts = splitTopLevel(state);
+  const out: Binding[] = [];
+  for (const part of parts) {
+    const m = part.match(/^([A-Za-z_][\w.[\]]*)\s*=\s*(.+)$/);
+    if (!m) return null;
+    // Drop a trailing note the writer adds ("\"Ada\" — 1 of 2 items"): it isn't the value.
+    out.push({ name: m[1], value: m[2].split(/\s+[—–]\s+/)[0].trim() });
+  }
+  return out.length ? out : null;
+}
+
+/**
+ * Every variable seen up to `step`, with its latest value, and which ones the
+ * step changed. Built only from the lesson's own trace.
+ */
+export function variablesAt(trace: { state: string }[], step: number) {
+  const values = new Map<string, string>();
+  let before = new Map<string, string>();
+  for (let s = 0; s <= step; s++) {
+    before = new Map(values);
+    for (const b of parseBindings(trace[s].state) ?? []) values.set(b.name, b.value);
+  }
+  return [...values].map(([name, value]) => ({ name, value, changed: before.get(name) !== value }));
+}
+
+/** The program's variables at this step: values that change flip into place. */
+function TraceState({ trace, step }: { trace: TraceStep[]; step: number }) {
+  const raw = trace[step].state;
+  if (!parseBindings(raw)) {
+    // Free-text state ("names is unchanged"): show it as written.
+    return <p className="font-mono mt-3 rounded-lg border border-gold/30 bg-gold/10 px-2.5 py-1.5 text-xs text-sand">{raw}</p>;
+  }
+  return (
+    <dl className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2" aria-label="Variables">
+      {variablesAt(trace, step).map((v) => (
+        <motion.div
+          key={v.name}
+          layout
+          className="trace-var rounded-lg border px-2.5 py-1.5"
+          data-changed={v.changed || undefined}
+          transition={spring.gentle}
+        >
+          <dt className="font-mono text-[11px] text-taupe">{v.name}</dt>
+          <dd className="font-mono relative h-5 overflow-hidden text-sm text-sand">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={v.value}
+                className="absolute inset-x-0 truncate"
+                initial={{ y: 14, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -14, opacity: 0 }}
+                transition={spring.snappy}
+              >
+                {v.value}
+              </motion.span>
+            </AnimatePresence>
+          </dd>
+        </motion.div>
+      ))}
+    </dl>
   );
 }

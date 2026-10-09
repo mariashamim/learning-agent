@@ -283,3 +283,20 @@ Sample lessons (DeepSeek V4.1 Flash), each module 2 of level 1:
 Problems appeared where something can be computed (escape speed, loop
 totals, a loaf's share of a day's wage in 1789, payoffs, outcome counts).
 "discovery" is still the writer's most common choice.
+
+## Model-written formulas
+
+Graph activities let the writer supply a formula (y in terms of x and a
+parameter k) that the browser plots. Two rules kept that safe and useful:
+
+- **Compile, never eval.** `lib/expression.ts` is a tokenizer and a
+  recursive-descent parser for numbers, x, k, pi, e, arithmetic and a fixed
+  list of functions. Anything else is a syntax error, and the activity is
+  dropped.
+- **Validate what the learner will see.** The first version picked the
+  y-axis automatically. On a real projectile lesson, steep launch angles sent
+  the curve 2,600 m below ground, so every sensible arc looked flat. Now the
+  writer chooses the viewing window, like a graphing calculator, and
+  validation requires the curve to be defined, not flat, and visibly inside
+  that window at the slider's minimum, starting value and maximum. Outside
+  the window it is clipped.

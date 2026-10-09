@@ -1,6 +1,8 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useState } from "react";
+import { spring } from "../motion/presets";
 import type { Block } from "@/lib/lessonBlocks";
 import { BlockFrame, Paragraphs } from "./BlockFrame";
 import { rich } from "./rich";
@@ -23,16 +25,39 @@ export function WorkedBlock({ b, onDone }: { b: Of<"worked">; onDone: () => void
       <div className="rounded-2xl border border-beige bg-ink/40 p-4 text-[15px] leading-relaxed text-sand">
         <Paragraphs text={b.problem} />
       </div>
-      <ol className="mt-4 space-y-3">
+      {/* Each step is built onto the last: the newest stands out, earlier ones settle back. */}
+      <ol className="mt-4">
         {b.steps.slice(0, shown).map((s, i) => (
-          <li key={i} className="step-reveal flex gap-3">
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-semibold text-gold">{i + 1}</span>
+          <motion.li
+            key={i}
+            className="worked-step relative flex gap-3 pb-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: i === shown - 1 || done ? 1 : 0.62, y: 0 }}
+            transition={spring.gentle}
+          >
+            {i < shown - 1 && (
+              <motion.span
+                className="absolute top-8 bottom-0 left-[13px] w-px origin-top bg-gold/40"
+                initial={{ scaleY: 0 }}
+                animate={{ scaleY: 1 }}
+                transition={{ duration: 0.4 }}
+                aria-hidden
+              />
+            )}
+            <motion.span
+              className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-xs font-semibold text-gold"
+              initial={{ scale: 0.4 }}
+              animate={{ scale: 1 }}
+              transition={spring.bouncy}
+            >
+              {i + 1}
+            </motion.span>
             <div className="min-w-0 flex-1">
               {s.title && <p className="text-sm font-semibold text-sand">{s.title}</p>}
               <p className="text-[15px] leading-relaxed whitespace-pre-line text-sand/90">{rich(s.text)}</p>
               {s.why && <p className="mt-1 text-sm leading-relaxed text-taupe">Why: {rich(s.why)}</p>}
             </div>
-          </li>
+          </motion.li>
         ))}
       </ol>
       {!done && (

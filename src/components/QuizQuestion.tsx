@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Question } from "./types";
 import { rich } from "./lesson/rich";
+import { Burst } from "./motion/primitives";
 
 function CheckIcon() {
   return (
@@ -65,12 +66,16 @@ export function QuizQuestion({
     <div className="rounded-3xl border border-beige/80 bg-paper p-5 sm:p-7">
       {label && <p className="mb-3 text-[11px] font-semibold tracking-[0.18em] text-gold uppercase">{label}</p>}
       <div className="flex items-start gap-3">
-        <span
-          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-            badge === "idle" ? "bg-gold/20 text-gold" : badge === "right" ? "animate-badge bg-sage text-ink" : "animate-badge bg-red-400 text-ink"
-          }`}
-        >
-          {badge === "idle" ? index + 1 : badge === "right" ? "✓" : "✗"}
+        <span className="relative flex-shrink-0">
+          {/* Celebrates the server-graded first answer; a softer one for finding it on a retry. */}
+          <Burst trigger={firstCorrect ? "first" : foundIt ? "retry" : null} tone={firstCorrect ? "gold" : "sage"} />
+          <span
+            className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+              badge === "idle" ? "bg-gold/20 text-gold" : badge === "right" ? "animate-badge bg-sage text-ink" : "animate-badge bg-red-400 text-ink"
+            }`}
+          >
+            {badge === "idle" ? index + 1 : badge === "right" ? "✓" : "✗"}
+          </span>
         </span>
         <p className="pt-0.5 text-[15.5px] leading-snug font-medium text-espresso">
           {rich(question.question)}

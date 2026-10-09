@@ -506,6 +506,7 @@ const flatItem = (o: Partial<{ label: string; text: string; detail: string; corr
 });
 
 const emptySlider = { label: "", min: 0, max: 0, step: 0, unit: "", initial: 0 };
+const emptyAxis = { xLabel: "", yLabel: "", xMin: 0, xMax: 0, yMin: 0, yMax: 0 };
 const actItem = (o: Partial<{ text: string; group: string; detail: string; value: number }>) => ({
   text: "",
   group: "",
@@ -529,6 +530,7 @@ export function flatActivity(a: Activity) {
     edges: [] as { from: number; to: number; label: string }[],
     slider: emptySlider,
     bands: [] as { upTo: number; title: string; detail: string }[],
+    axis: emptyAxis,
   };
   switch (a.type) {
     case "predict":
@@ -552,6 +554,8 @@ export function flatActivity(a: Activity) {
       return { ...base, script: a.script };
     case "sound":
       return { ...base, items: a.clips.map((c) => actItem({ text: c.label, group: c.notes.join(" "), detail: c.detail })) };
+    case "graph":
+      return { ...base, script: a.expression, slider: a.slider, bands: a.bands, axis: a.axis };
   }
 }
 

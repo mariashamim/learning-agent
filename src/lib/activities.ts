@@ -1,11 +1,14 @@
 // Interactive activities inside a lesson: predict-before-you-learn, scenarios,
 // drag-and-drop sorting and ordering, stories, timelines, infographics,
-// simulations, concept diagrams, narrated snippets and playable sounds.
+// simulations, concept diagrams, narrated snippets, playable sounds and
+// graphs whose curve the learner reshapes.
 //
 // The model fills ONE flat activity shape (structured-output providers handle
 // flat schemas far more reliably than unions); unused fields are left empty.
 // normalizeActivity() then validates each one for its type and converts it to
 // a clean, typed activity. Anything malformed is dropped, never shown.
+
+import { compileExpression, sample, type Fn } from "./expression";
 
 export const ACTIVITY_TYPES = [
   "predict",
@@ -19,6 +22,7 @@ export const ACTIVITY_TYPES = [
   "diagram",
   "listen",
   "sound",
+  "graph",
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -43,7 +47,16 @@ export type Activity =
       edges: { from: number; to: number; label: string }[];
     })
   | (Base & { type: "listen"; script: string })
-  | (Base & { type: "sound"; clips: { label: string; notes: string[]; detail: string }[] });
+  | (Base & { type: "sound"; clips: { label: string; notes: string[]; detail: string }[] })
+  | (Base & {
+      type: "graph";
+      /** y as a formula in x and k (see expression.ts). */
+      expression: string;
+      slider: { label: string; min: number; max: number; step: number; unit: string; initial: number };
+      bands: { upTo: number; title: string; detail: string }[];
+      /** The viewing window, as on a graphing calculator. */
+      axis: { xLabel: string; yLabel: string; xMin: number; xMax: number; yMin: number; yMax: number };
+    });
 
 // ---------- what the model fills in ----------
 
@@ -102,6 +115,12 @@ export const activityJsonSchema = {
         additionalProperties: false,
       },
     },
+    axis: {
+      type: "object",
+      properties: { xLabel: str, yLabel: str, xMin: num, xMax: num, yMin: num, yMax: num },
+      required: ["xLabel", "yLabel", "xMin", "xMax", "yMin", "yMax"],
+      additionalProperties: false,
+    },
   },
   required: [
     "type",
@@ -116,6 +135,7 @@ export const activityJsonSchema = {
     "edges",
     "slider",
     "bands",
+    "axis",
   ],
   additionalProperties: false,
 };
@@ -125,7 +145,8 @@ export const activityJsonSchema = {
 // saved before blocks existed, where it still places the activity.
 export const ACTIVITY_GUIDE = `Every activity has: type, title, prompt, reveal, and the fields its type uses.
 Leave unused fields empty: "" for strings, [] for arrays, 0 for numbers, and
-slider = {"label":"","min":0,"max":0,"step":0,"unit":"","initial":0} unless it's a simulation.
+slider = {"label":"","min":0,"max":0,"step":0,"unit":"","initial":0} unless it's a simulation or graph,
+and axis = {"xLabel":"","yLabel":"","xMin":0,"xMax":0,"yMin":0,"yMax":0} unless it's a graph.
 reveal: the 1-2 sentence takeaway shown after the learner interacts.
 
 - predict (ask before you tell): prompt = a question the learner can't quite answer yet; options =
@@ -153,6 +174,15 @@ reveal: the 1-2 sentence takeaway shown after the learner interacts.
 - sound (playable music): for music or sound topics ALWAYS include one, and never use it otherwise.
   items = 1-4 clips; text = label; group = space-separated notes like "C4 E4 G4 B4" (played together as
   a chord, or one after another); detail = what to listen for.
+- graph (interactive plot, for maths and physics): a curve the learner reshapes by dragging one parameter.
+  script = y as a formula in x and k, using only numbers, x, k, pi, e, + - * / ^ ( ) and sin cos tan asin
+  acos atan sqrt abs exp ln log (log is base 10), e.g. "k*x^2", "sin(k*x)", "x*tan(k*pi/180) - 9.8*x^2/(2*20^2*cos(k*pi/180)^2)"
+  (a projectile launched at k degrees); slider = k (label, min < max, step > 0, initial in range); axis =
+  {xLabel, yLabel, xMin < xMax, yMin < yMax} = the window to look through (e.g. heights 0 to 25 m), chosen so
+  the curve is clearly visible across the slider's range; anything outside is clipped. The learner never
+  sees "k": name the parameter in words in the prompt (e.g. "drag the launch angle"); bands = 2-5 captions sorted by upTo ascending over k, the last upTo >= slider.max,
+  title + detail say what the curve shows at those settings. Use it only when watching a curve change explains
+  the idea (graph transformations, trajectories, growth and decay, waves); the formula must be correct.
 Choose by fit: timeline for history and processes, simulation for quantities, diagram for systems,
 sort for classifying, order for procedures, story and scenario for judgment, chart for comparisons.`;
 
@@ -163,6 +193,26 @@ const text = (v: unknown, max = 600) => (typeof v === "string" ? v.trim().slice(
 const arr = (v: unknown): Raw[] => (Array.isArray(v) ? (v.filter((x) => x && typeof x === "object") as Raw[]) : []);
 const finite = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
 const NOTE = /^[A-G](#|b)?[1-7]$/;
+
+/**
+ * The formula compiles and draws a real curve at each k: mostly defined, not
+ * flat, and actually visible in the window (a fifth of its points inside).
+ */
+function plottable(expression: string, ks: number[], w: { xMin: number; xMax: number; yMin: number; yMax: number }) {
+  let f: Fn;
+  try {
+    f = compileExpression(expression);
+  } catch {
+    return false;
+  }
+  return ks.every((k) => {
+    const ys = sample(f, k, w.xMin, w.xMax, 60)
+      .map((p) => p.y)
+      .filter((y): y is number => y !== null);
+    const inside = ys.filter((y) => y >= w.yMin && y <= w.yMax).length;
+    return ys.length >= 40 && Math.max(...ys) - Math.min(...ys) > 1e-9 && inside >= 12;
+  });
+}
 
 /** Returns a clean typed activity, or null if it isn't usable for its type. */
 export function normalizeActivity(raw: unknown, conceptCount: number): Activity | null {
@@ -257,6 +307,38 @@ export function normalizeActivity(raw: unknown, conceptCount: number): Activity 
       const words = script.split(/\s+/).filter(Boolean).length;
       if (words < 12 || words > 140) return null;
       return { ...base, type, script };
+    }
+    case "graph": {
+      const expression = text(r.script, 200);
+      const s = (r.slider ?? {}) as Raw;
+      const slider = {
+        label: text(s.label, 80),
+        min: finite(s.min),
+        max: finite(s.max),
+        step: finite(s.step),
+        unit: text(s.unit, 30),
+        initial: finite(s.initial),
+      };
+      const ax = (r.axis ?? {}) as Raw;
+      const axis = {
+        xLabel: text(ax.xLabel, 40),
+        yLabel: text(ax.yLabel, 40),
+        xMin: finite(ax.xMin),
+        xMax: finite(ax.xMax),
+        yMin: finite(ax.yMin),
+        yMax: finite(ax.yMax),
+      };
+      if (!slider.label || !(slider.max > slider.min) || !(slider.step > 0)) return null;
+      if (!(axis.xMax > axis.xMin) || !(axis.yMax > axis.yMin)) return null;
+      if (!(slider.initial >= slider.min && slider.initial <= slider.max)) slider.initial = slider.min;
+      if (!plottable(expression, [slider.min, slider.initial, slider.max], axis)) return null;
+      const bands = arr(r.bands)
+        .map((b) => ({ upTo: finite(b.upTo), title: text(b.title, 100), detail: text(b.detail, 400) }))
+        .filter((b) => Number.isFinite(b.upTo) && b.title);
+      if (bands.length < 2 || bands.length > 5) return null;
+      if (bands.some((b, i) => i > 0 && b.upTo <= bands[i - 1].upTo)) return null;
+      bands[bands.length - 1].upTo = Math.max(bands[bands.length - 1].upTo, slider.max);
+      return { ...base, type, expression, slider, bands, axis };
     }
     case "sound": {
       const clips = items
