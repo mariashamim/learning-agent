@@ -15,7 +15,8 @@ const PROVIDER_ROUTING = { sort: "throughput" };
 export type ReasoningEffort = "low" | "medium" | "high";
 
 // A single model call may not hang the request: abort after this long, or
-// sooner if the caller's deadline is closer.
+// sooner if the caller's deadline is closer. Callers that write long outputs
+// (a whole lesson) may ask for more; see lessonWriter.ts.
 const MODEL_TIMEOUT_MS = 60_000;
 // Don't start (or retry) a call with less time than this left.
 const MIN_CALL_MS = 5_000;
@@ -58,12 +59,16 @@ function isTransient(e: unknown) {
   return e instanceof Error && (e.name === "TimeoutError" || e.name === "TypeError");
 }
 
-async function chat(body: Record<string, unknown>, deadline: Deadline): Promise<AssistantMessage> {
+async function chat(
+  body: Record<string, unknown>,
+  deadline: Deadline,
+  timeoutMs = MODEL_TIMEOUT_MS
+): Promise<AssistantMessage> {
   for (let attempt = 1; ; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining < MIN_CALL_MS) throw new Error("Out of time for another model call");
     try {
-      return await chatOnce(body, Math.min(MODEL_TIMEOUT_MS, remaining));
+      return await chatOnce(body, Math.min(timeoutMs, remaining));
     } catch (e) {
       if (attempt >= MAX_ATTEMPTS || !isTransient(e)) throw e;
       console.warn(`Model call failed (${e instanceof Error ? e.message : e}); retrying`);
@@ -104,7 +109,7 @@ export async function callStructured(
   user: string,
   schema: Record<string, unknown>,
   deadline: Deadline,
-  { reasoningEffort }: { reasoningEffort?: ReasoningEffort } = {}
+  { reasoningEffort, timeoutMs }: { reasoningEffort?: ReasoningEffort; timeoutMs?: number } = {}
 ): Promise<unknown> {
   const message = await chat({
     messages: [
@@ -116,7 +121,7 @@ export async function callStructured(
       json_schema: { name: "response", strict: true, schema },
     },
     ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
-  }, deadline);
+  }, deadline, timeoutMs);
   if (!message.content) throw new Error("Model returned no content");
   return JSON.parse(message.content);
 }

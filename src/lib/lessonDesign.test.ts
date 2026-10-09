@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { activityJsonSchema } from "./activities";
-import { lessonBlocks, type Lesson } from "./lessonBlocks";
+import { answerMatches, checkProblem, lessonBlocks, parseNumber, type Block, type Lesson } from "./lessonBlocks";
 import { lessonJsonSchema, lintStructure, normalizeBlock, normalizeLesson, toModelFormat } from "./lessonDesign";
 import { legacyLesson, question, rawHistoryLesson, rawProgrammingLesson } from "./testFixtures";
 
@@ -200,5 +200,84 @@ describe("toModelFormat (what the reviser sees)", () => {
       const again = valid(toModelFormat(withOne));
       assert.deepEqual(again.lesson.activities, [a], a.type);
     }
+  });
+});
+
+// ---------- problem blocks (typed answers) ----------
+
+const rawProblem = (o: Record<string, unknown> = {}) => ({
+  kind: "problem",
+  heading: "Discount",
+  body: "A $40 jacket is 25% off. What do you pay?",
+  aside: "25% of 40 is 10, so you pay 40 - 10 = 30.",
+  ref: 0,
+  language: "",
+  code: "",
+  mode: "",
+  columns: [],
+  items: [
+    { label: "", text: "10", detail: "That's the discount itself, not the price you pay.", correct: false, line: 0 },
+    { label: "", text: "30", detail: "A trap that equals the answer is contradictory.", correct: false, line: 0 },
+  ],
+  hints: ["Find 25% of 40 first."],
+  answers: ["30"],
+  unit: "$",
+  ...o,
+});
+
+describe("typed answers", () => {
+  it("parses the numbers people type", () => {
+    assert.equal(parseNumber("1,200"), 1200);
+    assert.equal(parseNumber("3/4"), 0.75);
+    assert.equal(parseNumber(" 12 cm"), 12);
+    assert.equal(parseNumber("-0.5"), -0.5);
+    assert.equal(parseNumber(".5"), 0.5);
+    assert.equal(parseNumber("2e3"), 2000);
+    assert.ok(Number.isNaN(parseNumber("about ten")));
+    assert.ok(Number.isNaN(parseNumber("1/0")));
+  });
+
+  it("matches integers exactly, decimals within 1%, text after normalizing", () => {
+    assert.ok(answerMatches("30", "30"));
+    assert.ok(answerMatches("$30", "30"), "a currency symbol in front is fine");
+    assert.ok(answerMatches("-$5", "-5"));
+    assert.ok(answerMatches("30 dollars", "30"));
+    assert.ok(!answerMatches("29.9", "30"), "integer answers need the exact integer");
+    assert.ok(answerMatches("3.1416", "3.14"));
+    assert.ok(!answerMatches("3.2", "3.14"));
+    assert.ok(answerMatches("0.75", "3/4"));
+    assert.ok(answerMatches("3/4", "0.75"));
+    assert.ok(answerMatches(" Photosynthesis. ", "photosynthesis"));
+    assert.ok(!answerMatches("respiration", "photosynthesis"));
+  });
+
+  it("validates a problem block and drops traps that contradict the answer", () => {
+    const b = normalizeBlock(rawProblem());
+    assert.ok(b && b.kind === "problem");
+    assert.deepEqual(b.answers, ["30"]);
+    assert.deepEqual(b.traps.map((t) => t.answer), ["10"]);
+    assert.equal(b.unit, "$");
+  });
+
+  it("gives feedback aimed at the mistake behind a likely wrong answer", () => {
+    const b = normalizeBlock(rawProblem()) as Extract<Block, { kind: "problem" }>;
+    assert.deepEqual(checkProblem(b, "30"), { correct: true, feedback: null });
+    assert.deepEqual(checkProblem(b, "10"), { correct: false, feedback: "That's the discount itself, not the price you pay." });
+    assert.deepEqual(checkProblem(b, "35"), { correct: false, feedback: null });
+  });
+
+  it("rejects a problem with no answer or no worked solution", () => {
+    assert.equal(normalizeBlock(rawProblem({ answers: [] })), null);
+    assert.equal(normalizeBlock(rawProblem({ aside: "" })), null);
+    assert.equal(normalizeBlock(rawProblem({ body: "" })), null);
+  });
+
+  it("counts as hands-on and round-trips through the model format", () => {
+    const raw = rawHistoryLesson();
+    // Replace the reflection with a problem: the lesson still has enough hands-on blocks.
+    raw.blocks = raw.blocks.map((b) => (b.kind === "reflect" ? (rawProblem() as unknown as typeof b) : b));
+    const { lesson } = valid(raw);
+    assert.ok(lesson.blocks!.some((b) => b.kind === "problem"));
+    assert.deepEqual(valid(toModelFormat(lesson)).lesson, lesson);
   });
 });

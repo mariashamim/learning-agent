@@ -2,7 +2,7 @@
 // each lesson's approach and block sequence, to check lessons vary by subject.
 // Uses the OpenRouter key in .env.local; nothing is saved to the database.
 //
-//   node --env-file=.env.local --import tsx scripts/sample-lessons.ts [outDir]
+//   node --env-file=.env.local --import tsx scripts/sample-lessons.ts [outDir] [topic filter]
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,16 +36,10 @@ const SAMPLES: (Pick<LessonBrief, "topic" | "courseTitle" | "module"> & { kind: 
     module: { title: "The prisoner's dilemma", goal: "See why individually rational choices can lead to a worse outcome for everyone." },
   },
   {
-    kind: "philosophy",
-    topic: "Stoicism",
-    courseTitle: "Stoicism for Everyday Life",
-    module: { title: "The dichotomy of control", goal: "Sort what is up to you from what is not, and act on it." },
-  },
-  {
-    kind: "music",
-    topic: "Jazz harmony",
-    courseTitle: "Jazz Harmony",
-    module: { title: "Seventh chords", goal: "Hear and build major 7, dominant 7 and minor 7 chords." },
+    kind: "mathematics",
+    topic: "Probability",
+    courseTitle: "Probability: Reasoning Under Uncertainty",
+    module: { title: "Independent events and the multiplication rule", goal: "Compute the probability that two independent events both happen." },
   },
 ];
 
@@ -57,7 +51,15 @@ async function one(s: (typeof SAMPLES)[number]) {
   const start = Date.now();
   try {
     const { lesson, score, passed } = await writeLesson(
-      { ...s, moduleIndex: 1, moduleCount: 4, previousModules: ["Introduction"], focus: "" },
+      {
+        ...s,
+        moduleIndex: 1,
+        moduleCount: 9,
+        previousModules: ["Introduction"],
+        // Second module of the first level, so the writer pitches it as early in the course.
+        level: { number: 1, count: 3, title: "Foundations", objective: `Understand the core ideas of ${s.topic}.`, moduleNumber: 2, moduleCount: 3 },
+        focus: "",
+      },
       { reviseDeadline: start + 120_000, deadline: start + 280_000, trace }
     );
     writeFileSync(join(outDir, `${s.topic.replace(/\W+/g, "-").toLowerCase()}.json`), JSON.stringify({ lesson, score, trace }, null, 2));
@@ -76,4 +78,8 @@ async function one(s: (typeof SAMPLES)[number]) {
   }
 }
 
-Promise.all(SAMPLES.map(one)).then((results) => console.log(results.join("\n\n")));
+// Optional filter: only topics containing this text (e.g. "game").
+const only = process.argv[3]?.toLowerCase();
+Promise.all(SAMPLES.filter((s) => !only || s.topic.toLowerCase().includes(only)).map(one)).then((results) =>
+  console.log(results.join("\n\n"))
+);

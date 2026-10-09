@@ -83,7 +83,8 @@ approach that fits the content (mystery, guided discovery, visual, scenario,
 worked example, misconception, simulation, case study, story, Socratic,
 compare, practice, reflection), then builds the sequence from these blocks:
 explain, activity, check, worked example, code (predict output / find the fix
-/ step-through trace), compare, reflect, dialogue, summary. Nothing is fixed:
+/ step-through trace), problem (work it out and type the answer), compare,
+reflect, dialogue, summary. Nothing is fixed:
 no mandatory opening prediction, definition or closing quiz. Earlier modules'
 approaches are passed in so a course varies. Topic-specific sequences are
 never hardcoded; the guide describes what each approach does to a lesson's
@@ -92,9 +93,18 @@ shape, and the model chooses.
 **Checks live inside the lesson.** Graded questions (2-4, scenario-based,
 exactly 4 options, `correctAnswer` matching one) stay in `questions`, so
 grading and progress are unchanged; each is placed by a `check` block right
-after the idea it tests, with up to 2 progressive hints and an alternative
-explanation shown after a wrong answer. The module is saved once every check
-is answered.
+after the idea it tests, with up to 2 progressive hints. A wrong answer
+doesn't reveal the right one: the learner sees an alternative explanation and
+can try again or ask for the answer. Only the first answer is sent and graded;
+retries are practice. The module is saved once every check is answered.
+
+**Typed problems.** A `problem` block asks the learner to work something out
+and type the answer. It's checked in the browser (practice, not graded):
+integers exactly, other numbers within 1%, fractions and currency symbols
+understood, short text after normalizing case and spacing. Anticipated wrong
+answers ("traps") get feedback naming the mistake behind them; hints come one
+at a time; the worked solution is shown once solved, or on request after two
+misses. Validation drops traps that would match an accepted answer.
 
 **Validation in code.** `lib/lessonDesign.ts` validates each block, activity
 and question on its own, drops what is malformed, remaps references, and
@@ -111,7 +121,7 @@ predict, scenario, drag-and-drop sort, drag-to-order, story, timeline,
 infographic chart, slider simulation, interactive diagram, narrated listen
 (browser speech) and playable sound (Web Audio, music topics only).
 `lib/activities.ts` validates each for its type. Activities, code exercises,
-worked examples, reflections and dialogues are practice: ungraded and not
+worked examples, problems, reflections and dialogues are practice: ungraded and not
 saved. Progress still comes from the checks.
 
 **Saved lessons keep working.** Lessons saved before blocks existed have
@@ -121,7 +131,7 @@ progress and grading are untouched. No database migration is needed.
 
 **Bounded iteration.** Max 6 agent turns, at most one revision per lesson, one
 retry for malformed output, one retry for transient call failures, 60s per
-model call, no revision after 120s, no agent turn after 200s, and a hard 280s
+model call (90s for writing or scoring a lesson), no revision after 120s, no agent turn after 200s, and a hard 280s
 deadline for every call (300s route limit).
 
 **Server-side grading.** The browser sends chosen options; the server grades

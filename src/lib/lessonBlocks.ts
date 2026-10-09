@@ -41,6 +41,7 @@ export const BLOCK_KINDS = [
   "reflect",
   "dialogue",
   "summary",
+  "problem",
 ] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
@@ -70,7 +71,23 @@ export type Block =
   | { kind: "compare"; heading: string; intro: string; columns: [string, string]; rows: { label: string; a: string; b: string }[] }
   | { kind: "reflect"; heading: string; prompt: string; model: string }
   | { kind: "dialogue"; heading: string; turns: { speaker: string; text: string }[] }
-  | { kind: "summary"; heading: string; points: string[] };
+  | { kind: "summary"; heading: string; points: string[] }
+  /**
+   * A problem the learner works out and types the answer to. Checked in the
+   * browser (practice, not graded): numbers with a small tolerance, short
+   * text exactly. Likely wrong answers ("traps") get feedback aimed at the
+   * mistake behind them.
+   */
+  | {
+      kind: "problem";
+      heading: string;
+      prompt: string;
+      answers: string[];
+      unit: string;
+      traps: { answer: string; feedback: string }[];
+      hints: string[];
+      solution: string;
+    };
 
 /** A graded knowledge check. Graded on the server against the stored lesson. */
 export type Question = { question: string; options: string[]; correctAnswer: string; explanation: string };
@@ -116,3 +133,48 @@ export function lessonBlocks(lesson: Lesson): Block[] {
 
 /** Blocks the learner engages with (they count toward the session bar). */
 export const isInteractive = (b: Block) => b.kind !== "explain" && b.kind !== "compare" && b.kind !== "summary";
+
+// ---------- checking a typed answer ----------
+
+/** "1,200" → 1200, "3/4" → 0.75, "12 cm" → 12, "$30" → 30, "-0.5" → -0.5; NaN if it doesn't start with a number. */
+export function parseNumber(input: string): number {
+  const s = input
+    .trim()
+    .replace(/(\d),(?=\d{3}\b)/g, "$1")
+    .replace(/^\+/, "")
+    .replace(/^(-?)\s*[$€£¥₹]\s*/, "$1");
+  const fraction = s.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (fraction) return Number(fraction[2]) === 0 ? NaN : Number(fraction[1]) / Number(fraction[2]);
+  const n = s.match(/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/i);
+  return n ? Number(n[0]) : NaN;
+}
+
+const normalizeText = (s: string) =>
+  s.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!]+$/, "").replace(/^["'`]|["'`]$/g, "");
+
+/**
+ * Whether `input` matches `expected`. Integers must match exactly; other
+ * numbers within 1% (so 3.14 accepts 3.1416); text after normalizing case,
+ * spacing and a trailing full stop.
+ */
+export function answerMatches(input: string, expected: string): boolean {
+  const want = parseNumber(expected);
+  const isNumeric = Number.isFinite(want) && normalizeText(expected).replace(/[\d.,\s/eE+-]/g, "").length <= 6;
+  if (isNumeric) {
+    const got = parseNumber(input);
+    if (!Number.isFinite(got)) return false;
+    if (Number.isInteger(want) && !/[./]/.test(expected)) return got === want;
+    return Math.abs(got - want) <= Math.max(1e-9, Math.abs(want) * 0.01);
+  }
+  return normalizeText(input) === normalizeText(expected);
+}
+
+/** Checks a typed answer against a problem block. */
+export function checkProblem(
+  b: Extract<Block, { kind: "problem" }>,
+  input: string
+): { correct: boolean; feedback: string | null } {
+  if (b.answers.some((a) => answerMatches(input, a))) return { correct: true, feedback: null };
+  const trap = b.traps.find((t) => answerMatches(input, t.answer));
+  return { correct: false, feedback: trap?.feedback ?? null };
+}

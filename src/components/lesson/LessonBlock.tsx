@@ -4,6 +4,7 @@ import type { Block, Lesson } from "@/lib/lessonBlocks";
 import { Activity } from "../activities/Activity";
 import { QuizQuestion } from "../QuizQuestion";
 import { CodeBlock } from "./CodeBlock";
+import { ProblemBlock } from "./ProblemBlock";
 import { DialogueBlock, ReflectBlock, WorkedBlock } from "./StepBlocks";
 import { CompareBlock, ExplainBlock, SummaryBlock } from "./TextBlocks";
 
@@ -59,5 +60,7 @@ export function LessonBlock({
       return <ReflectBlock b={block} onDone={onDone} />;
     case "dialogue":
       return <DialogueBlock b={block} onDone={onDone} />;
+    case "problem":
+      return <ProblemBlock b={block} onDone={onDone} />;
   }
 }

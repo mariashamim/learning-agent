@@ -12,6 +12,7 @@ import { ACTIVITY_GUIDE, activityJsonSchema, normalizeActivity, type Activity } 
 import {
   APPROACHES,
   BLOCK_KINDS,
+  checkProblem,
   lessonBlocks,
   type Approach,
   type Block,
@@ -80,8 +81,10 @@ const blockJsonSchema = {
       },
     },
     hints: strings,
+    answers: strings,
+    unit: str,
   },
-  required: ["kind", "heading", "body", "aside", "ref", "language", "code", "mode", "columns", "items", "hints"],
+  required: ["kind", "heading", "body", "aside", "ref", "language", "code", "mode", "columns", "items", "hints", "answers", "unit"],
   additionalProperties: false,
 };
 
@@ -124,12 +127,17 @@ ${APPROACH_KEYS.map((k) => `   - ${k}: ${APPROACHES[k]}. Shape: ${APPROACH_MOVES
    suits compare or scenario; a quantity that changes suits simulation; an abstract argument suits
    socratic. Fit the subject: programming is learned by reading, predicting, tracing and fixing real
    code; history through causes, sources, perspectives and chronology; science through phenomena,
-   models and quantities; strategy through decisions, incentives and payoffs.
+   models and quantities; mathematics through a problem or picture first, reasoning the learner does
+   themselves, steps revealed progressively and a fresh problem to solve; strategy through decisions,
+   incentives and payoffs.
+   Pitch difficulty to where the module sits: early in a course (level 1), concrete examples, more
+   scaffolding and hints; in later levels, less scaffolding, harder transfer and combined ideas.
    If the tutor lists approaches used in earlier modules, choose a different one unless it truly fits better.
 
 2. BLOCKS. Write "blocks": 5-12 blocks in teaching order, moving from exploration to understanding
    to application. Use only the kinds this lesson needs; never pad with filler. Every block has all
    fields; leave unused ones empty ("" / [] / 0, and "correct": false, "line": 0 in items).
+   Every block includes "answers" and "unit"; leave them [] and "" except in problem blocks.
    - explain: heading, body = the explanation (2-6 sentences; separate paragraphs with a blank line),
      aside = an optional concrete example. Define a term only when the learner needs it.
    - activity: ref = index into "activities" (0-based). Each activity is placed by exactly one block.
@@ -153,6 +161,13 @@ ${APPROACH_KEYS.map((k) => `   - ${k}: ${APPROACHES[k]}. Shape: ${APPROACH_MOVES
      aside = a strong model answer they compare against afterwards.
    - dialogue: a short Socratic exchange. heading, items = 3-8 turns (label = speaker, text = line).
    - summary: heading, items = 2-4 takeaways (text). Only if it adds something; never just repeat.
+   - problem: the learner works something out and TYPES the answer (a number, or a word or short
+     phrase with one right form). Use it when the answer can be computed or derived rather than picked:
+     calculations, results of a procedure, a predicted value. heading, body = the problem (all the
+     information needed), answers = 1-3 accepted forms (e.g. ["0.75", "3/4"]; numbers without units),
+     unit = the unit if any (e.g. "cm", or ""), items = 0-3 traps for likely mistakes (text = that
+     wrong answer, detail = feedback that names the mistake), hints = 1-2 progressive hints,
+     aside = the worked solution. Answers must be exactly right; do the calculation carefully.
 
 3. RULES FOR THE SEQUENCE
    - Don't open or close every lesson the same way. Open with whatever this approach needs: a puzzle,
@@ -164,7 +179,9 @@ ${APPROACH_KEYS.map((k) => `   - ${k}: ${APPROACHES[k]}. Shape: ${APPROACH_MOVES
    - Spread the knowledge checks through the lesson at natural points. At least one check must come
      before the last teaching block; never stack them all at the end. They get harder as the lesson goes:
      early ones apply one idea, later ones combine ideas or transfer them to a new situation.
-   - At least 2 hands-on blocks (activity, code, worked, reflect) besides the checks.
+   - At least 2 hands-on blocks (activity, code, worked, problem, reflect) besides the checks.
+   - End with a final check or problem only when the lesson builds to applying everything; otherwise
+     end where the approach lands.
    - Never use the same activity type twice, and don't put two blocks of the same kind back to back
      unless the sequence genuinely needs it. No more than 2 explain blocks in a row.
 
@@ -192,7 +209,7 @@ export const MAX_BLOCKS = 12;
 export const MIN_QUESTIONS = 2;
 export const MAX_QUESTIONS = 4;
 const MAX_ACTIVITIES = 4;
-const HANDS_ON: BlockKind[] = ["activity", "code", "worked", "reflect"];
+const HANDS_ON: BlockKind[] = ["activity", "code", "worked", "reflect", "problem"];
 const TEACHING: BlockKind[] = ["explain", "worked", "dialogue", "compare", "code"];
 
 function choiceOptions(items: ReturnType<typeof normItems>): CodeOption[] | null {
@@ -278,6 +295,28 @@ export function normalizeBlock(raw: unknown): Block | null {
       const turns = items.filter((i) => i.label && i.text).map((i) => ({ speaker: i.label, text: i.text }));
       if (turns.length < 2 || turns.length > 10) return null;
       return { kind, heading, turns };
+    }
+    case "problem": {
+      const answers = strs(r.answers, 40).slice(0, 3);
+      const solution = aside;
+      if (!body || answers.length === 0 || !solution) return null;
+      const block = {
+        kind,
+        heading,
+        prompt: body,
+        answers,
+        unit: text(r.unit, 20),
+        traps: [] as { answer: string; feedback: string }[],
+        hints: strs(r.hints).slice(0, 2),
+        solution,
+      };
+      // A trap that is actually an accepted answer would contradict itself: drop it.
+      block.traps = items
+        .filter((i) => i.text && i.detail)
+        .map((i) => ({ answer: i.text.slice(0, 40), feedback: i.detail }))
+        .filter((t) => !checkProblem(block, t.answer).correct)
+        .slice(0, 3);
+      return block;
     }
     case "summary": {
       const points = items.map((i) => i.text).filter(Boolean);
@@ -438,7 +477,8 @@ export function lintStructure(lesson: Lesson): string[] {
     b.kind === "code" ? `code (${b.mode})` : b.kind === "activity" ? `${lesson.activities?.[b.ref]?.type} activity` : b.kind;
   const counts = new Map<string, number>();
   for (const b of blocks) if (b.kind !== "explain" && b.kind !== "check") counts.set(signature(b), (counts.get(signature(b)) ?? 0) + 1);
-  for (const [sig, n] of counts) if (n >= 3) issues.push(`The same interaction (${sig}) is used ${n} times; vary how the learner engages.`);
+  // Several problems in a row is what practice looks like; other interactions repeat sooner.
+  for (const [sig, n] of counts) if (n >= (sig === "problem" ? 4 : 3)) issues.push(`The same interaction (${sig}) is used ${n} times; vary how the learner engages.`);
   const first = blocks[0];
   const second = blocks[1];
   if (
@@ -529,6 +569,8 @@ export function flatBlock(b: Block) {
     columns: [] as string[],
     items: [] as ReturnType<typeof flatItem>[],
     hints: [] as string[],
+    answers: [] as string[],
+    unit: "",
   };
   switch (b.kind) {
     case "explain":
@@ -566,6 +608,17 @@ export function flatBlock(b: Block) {
       return { ...base, heading: b.heading, body: b.prompt, aside: b.model };
     case "dialogue":
       return { ...base, heading: b.heading, items: b.turns.map((t) => flatItem({ label: t.speaker, text: t.text })) };
+    case "problem":
+      return {
+        ...base,
+        heading: b.heading,
+        body: b.prompt,
+        aside: b.solution,
+        answers: b.answers,
+        unit: b.unit,
+        hints: b.hints,
+        items: b.traps.map((t) => flatItem({ text: t.answer, detail: t.feedback })),
+      };
     case "summary":
       return { ...base, heading: b.heading, items: b.points.map((text) => flatItem({ text })) };
   }

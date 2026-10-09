@@ -76,8 +76,13 @@ ${b.previousApproaches?.length ? `Approaches used in earlier modules: ${b.previo
 // - writing at "medium": ~10s vs ~20s at the default, same quality and
 //   quiz validity; with reasoning off, lessons scored lower.
 // - scoring at "low": same scores as the default, a fraction of the time.
-const WRITER_OPTIONS = { reasoningEffort: "medium" } as const;
-const EVALUATOR_OPTIONS = { reasoningEffort: "low" } as const;
+// Writing a whole lesson regularly takes 35-70s and scoring one up to ~60s;
+// at the default 60s limit a slow but healthy call was cut off near the end
+// and retried from scratch (3 of 10 sample generations failed that way). The
+// run's hard deadline still bounds the total.
+const LESSON_CALL_TIMEOUT_MS = 90_000;
+const WRITER_OPTIONS = { reasoningEffort: "medium", timeoutMs: LESSON_CALL_TIMEOUT_MS } as const;
+const EVALUATOR_OPTIONS = { reasoningEffort: "low", timeoutMs: LESSON_CALL_TIMEOUT_MS } as const;
 
 // The model occasionally ignores the rules. Retry once on a validation
 // failure (bounded), then give up with a clear error.

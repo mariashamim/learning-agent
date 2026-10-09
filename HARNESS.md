@@ -251,3 +251,35 @@ picture, light reactions, the Calvin cycle, real-world limits) of 3, 3, 3 and
 2 modules; "Brewing pour-over coffee" → 3 levels of 3 (first reliable cup,
 bloom and pouring, dialing in). Planning plus the first module took about 65s,
 as before.
+
+## Working answers out, and timeouts that cut off good work
+
+Lessons could already vary their shape, but every interaction was picking
+from options. A `problem` block lets the learner compute an answer and type
+it; feedback is aimed at the anticipated mistake ("you added 6 + 6, but each
+red result pairs with every blue one"). Graded checks also became retryable:
+the first answer is graded, later tries are practice, and a wrong answer gets
+an alternative explanation instead of the right option.
+
+Measuring the samples exposed a timing problem. Writing a lesson takes 35-70s
+and scoring one up to ~60s, but every model call was cut off at 60s and
+retried once, also at 60s: a slow but healthy call was thrown away near the
+finish and retried from scratch. In one run 3 of 10 generations failed that
+way. Lesson writing and scoring now get 90s per call; agent turns keep 60s and
+the run's 280s hard deadline still bounds everything. Under five parallel
+generations against one provider, a single game theory lesson still needed
+over 90s, so provider latency remains the main risk to a run.
+
+Sample lessons (DeepSeek V4.1 Flash), each module 2 of level 1:
+
+| Subject | Approach | Sequence |
+| --- | --- | --- |
+| Black holes | simulation | explain > simulation > explain > check > worked > explain > diagram > check > problem > reflect |
+| Python loops | discovery | predict > code trace > explain > check > worked > check > sort > problem > check > code bug > problem > reflect |
+| French Revolution | mystery | chart > explain > explain > check > simulation > explain > problem > explain > check > diagram > check > explain |
+| Game theory | discovery | predict > explain > check > explain > scenario > explain > check > sort > check > problem |
+| Probability | discovery | predict > explain > worked > check > explain > check > sort > check > problem |
+
+Problems appeared where something can be computed (escape speed, loop
+totals, a loaf's share of a day's wage in 1789, payoffs, outcome counts).
+"discovery" is still the writer's most common choice.

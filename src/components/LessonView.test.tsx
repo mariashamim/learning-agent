@@ -78,6 +78,19 @@ describe("LessonView", () => {
   });
 });
 
+describe("problem blocks", () => {
+  it("render an answer field, its unit and hints", () => {
+    const lesson = normalized(rawHistoryLesson());
+    lesson.blocks = [
+      ...lesson.blocks!,
+      { kind: "problem", heading: "Bread budget", prompt: "A loaf costs 14 sous; a wage is 20 sous. What percent of the wage is one loaf?", answers: ["70"], unit: "%", traps: [], hints: ["Divide, then multiply by 100."], solution: "14 / 20 = 0.7 = 70%." },
+    ];
+    const html = render(lesson);
+    positions(html, ["Work it out", "Bread budget", 'placeholder="Your answer"', "Need a hint?", "%"]);
+    assert.ok(!html.includes("70 / 20"), "the solution stays hidden until solved");
+  });
+});
+
 describe("rich text", () => {
   it("renders `inline code` as code and leaves other text alone", () => {
     assert.equal(renderToStaticMarkup(<p>{rich("Use `for x in xs` here")}</p>), '<p>Use <code class="inline-code font-mono">for x in xs</code> here</p>');
