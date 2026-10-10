@@ -205,6 +205,7 @@ Each run rebuilds the agent's context from there.
 - `src/components/app/CourseMap.tsx` — animated course journey map
 - `src/components/app/PageHero.tsx` — ink page header and cream content section
 - `src/components/app/HeroCollage.tsx` — the home page's paper collage
+- `src/components/app/CourseFan.tsx` — courses to explore as a fan of cards on a wheel (drag, arrows, ←/→)
 - `src/components/app/SmoothScroll.tsx` — Lenis momentum scroll (off on lessons), `scrollToElement()`
 - `src/lib/expression.ts` — safe formula compiler for graph activities
 - `src/components/`, `src/hooks/` — UI pieces

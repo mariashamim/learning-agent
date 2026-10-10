@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useAppState } from "@/components/app/AppState";
-import { CATALOG, CatalogTile, CourseTile } from "@/components/app/CourseCards";
+import { CATALOG, CourseTile } from "@/components/app/CourseCards";
+import { CourseFan } from "@/components/app/CourseFan";
 import { DotField } from "@/components/app/DotField";
 import { Scrollytelling } from "@/components/app/Scrollytelling";
 import { Reveal } from "@/components/Reveal";
@@ -63,23 +64,29 @@ export default function CoursesPage() {
         )}
       </section>
 
-      {/* Explore */}
+      </CreamSection>
+
+      {/* Explore: a fan of course cards on a wheel (ink) */}
       {explore.length > 0 && (
-        <section className="mt-20" aria-labelledby="explore">
-          <h2 id="explore" className="font-display text-3xl text-sand sm:text-4xl">
-            Explore something new
-          </h2>
-          <p className="mt-2 text-taupe">Choosing one plans your course and opens its welcome page.</p>
-          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-            {explore.map((c, i) => (
-              <Reveal key={c.topic} group="explore" delay={i * 60} stagger={60}>
-                <CatalogTile topic={c.topic} blurb={c.blurb} />
-              </Reveal>
-            ))}
+        <section className="surface-ink hero-ink" aria-labelledby="explore">
+          <div className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-10 lg:pt-20">
+            <div className="meta-line">
+              <span>[ Explore ]</span>
+              <span className="rule" />
+              <span>Drag, or use the arrows</span>
+            </div>
+            <h2 id="explore" className="font-display mt-8 text-[clamp(36px,4.6vw,64px)] leading-[0.98] text-sand">
+              Explore something <span className="accent-word">new</span>
+            </h2>
+            <p className="mt-3 max-w-lg text-taupe">Choosing one plans your course and opens its welcome page.</p>
+          </div>
+          <div className="pb-16 lg:pb-20">
+            <CourseFan items={explore} title="Courses to explore" />
           </div>
         </section>
       )}
 
+      <CreamSection>
       <Scrollytelling />
       </CreamSection>
     </main>

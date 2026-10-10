@@ -1655,3 +1655,60 @@ html.lenis body {
   transition-duration: 1ms;
   transition-behavior: allow-discrete;
 }
+
+/* ============ Course fan (cards on a wheel) ============ */
+.course-fan {
+  --card-w: clamp(230px, 24vw, 310px);
+  --card-h: calc(var(--card-w) * 1.38);
+  /* clip, not hidden: a hidden box can still be scrolled (by focusing a card
+     or scrollIntoView), which shifted the whole fan off-centre. */
+  overflow: hidden;
+  overflow: clip;
+  padding-top: 28px;
+  /* Fade the cards out toward the edges of the stage. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+.fan-stage {
+  height: calc(var(--card-h) + 130px);
+  cursor: grab;
+}
+.fan-stage:active {
+  cursor: grabbing;
+}
+.fan-slot {
+  width: var(--card-w);
+  margin-left: calc(var(--card-w) / -2);
+}
+.fan-card {
+  height: var(--card-h);
+  box-shadow: 0 40px 60px -28px rgba(0, 0, 0, 0.75), 0 2px 0 rgba(0, 0, 0, 0.12);
+  transition: box-shadow 300ms ease;
+}
+.fan-card[data-center] {
+  box-shadow: 0 50px 70px -26px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(224, 163, 0, 0.35);
+}
+.fan-card .star-btn {
+  height: 32px;
+  width: 32px;
+}
+.fan-paper { background: #fbf6ec; color: #1a0f24; }
+.fan-paper .fan-meta, .fan-paper .fan-blurb { color: #6b5d70; }
+.fan-paper .fan-cta { background: #1a0f24; color: #f6f1e7; }
+.fan-gold { background: #f2c94c; color: #1a0f24; }
+.fan-gold .fan-meta, .fan-gold .fan-blurb { color: #5a4300; }
+.fan-gold .fan-cta { background: #1a0f24; color: #f6f1e7; }
+.fan-berry { background: #a3336d; color: #fbeaf0; }
+.fan-berry .fan-meta, .fan-berry .fan-blurb { color: #f4c0d1; }
+.fan-berry .fan-cta { background: #fbeaf0; color: #4b1528; }
+.fan-card.fan-art {
+  background: linear-gradient(160deg, #7a5498, #3a1f52 55%, #a3336d);
+  color: #f6f1e7;
+}
+.fan-art .fan-meta, .fan-art .fan-blurb { color: #e5d6f2; }
+.fan-art .fan-cta { background: var(--gold-fill); color: var(--ink); }
+.fan-card .star-btn:not([data-on]) {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  background: transparent;
+  color: inherit;
+}
