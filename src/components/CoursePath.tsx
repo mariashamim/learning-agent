@@ -48,7 +48,7 @@ export function CoursePath({
                 const isNext = i === course.currentModule && course.status === "active";
                 const number = hasLevels ? k + 1 : i + 1;
                 const tone = isActive
-                  ? "border-gold bg-gold text-ink"
+                  ? "border-gold-fill bg-gold-fill text-ink"
                   : completed
                     ? "border-gold/40 bg-gold/15 text-gold"
                     : isNext

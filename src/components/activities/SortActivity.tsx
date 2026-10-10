@@ -113,7 +113,7 @@ export function SortActivity({ a, onDone }: { a: SortData; onDone: () => void })
               tabIndex={0}
               onClick={() => selected !== null && place(selected, b)}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && selected !== null && place(selected, b)}
-              className={`sort-bucket min-h-[120px] rounded-2xl border-2 p-3 ${selected !== null ? "border-gold/60 bg-gold/5" : "border-beige bg-ink/30"}`}
+              className={`sort-bucket min-h-[120px] rounded-2xl border-2 p-3 ${selected !== null ? "border-gold/60 bg-gold/5" : "border-beige bg-well/30"}`}
             >
               <p className="mb-2 text-xs font-semibold tracking-[0.12em] text-gold uppercase">{b}</p>
               <div className="flex flex-wrap gap-2">{order.filter((i) => placed[i] === b).map(chip)}</div>

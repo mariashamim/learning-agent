@@ -5,13 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CustomCursor } from "../CustomCursor";
 import { BookIcon, ChartIcon, HomeIcon, LibraryIcon } from "../Icons";
 import { LearnerPill } from "../LearnerPill";
 import { TopProgressBar } from "../LoadingIndicator";
 import { spring } from "../motion/presets";
 import { WovenThreads } from "../motion/WovenThreads";
 import { AppStateProvider, useAppState } from "./AppState";
+import { SmoothScroll } from "./SmoothScroll";
 
 const NAV = [
   { href: "/", label: "Home", Icon: HomeIcon },
@@ -23,102 +23,112 @@ const NAV = [
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
 /**
- * The Weavr mark (bird and woven loops) on a transparent background. Uses the
- * dark-background variant: the same artwork with the loops lifted to lavender
- * and orchid and the bird brightened, so it reads on deep purple.
+ * The Weavr mark (bird and woven loops) on a transparent background. "dark"
+ * is the variant lifted for ink grounds; "light" the original colours, for
+ * cream.
  */
-export function LogoMark({ size = 40 }: { size?: number }) {
+export function LogoMark({ size = 40, tone = "dark" }: { size?: number; tone?: "dark" | "light" }) {
   return (
     <span className="logo-mark flex flex-shrink-0 items-center justify-center" style={{ width: size, height: size }} aria-hidden>
-      <Image src="/brand/weavr-mark-dark.webp" alt="" width={size} height={size} className="h-full w-full object-contain" priority />
+      <Image
+        src={tone === "dark" ? "/brand/weavr-mark-dark.webp" : "/brand/weavr-mark.png"}
+        alt=""
+        width={size}
+        height={size}
+        className="h-full w-full object-contain"
+        priority
+      />
     </span>
   );
 }
 
-/** "Weavr" in two tones, echoing the logo's wordmark. */
+/** "Weavr" set in the headline sans. */
 export function Wordmark({ className = "" }: { className?: string }) {
-  return (
-    <span className={`font-sans font-bold tracking-tight text-sand ${className}`}>
-      Wea<span className="text-gold">vr</span>
-    </span>
-  );
+  return <span className={`font-display tracking-tight text-sand ${className}`}>Weavr</span>;
 }
 
-export function Brand() {
-  return (
-    <Link href="/" className="group flex items-center gap-3">
-      <span className="transition-transform duration-300 group-hover:-rotate-6">
-        <LogoMark />
-      </span>
-      <span className="leading-tight">
-        <Wordmark className="block text-2xl leading-none" />
-        <span className="block text-[11px] text-taupe">an AI tutor with a memory</span>
-      </span>
-    </Link>
-  );
-}
-
-function Sidebar() {
+/**
+ * The top bar: logo left, text links and a "Start learning" pill right. It
+ * sits transparent over the page's dark hero and turns into a blurred ink
+ * strip once the page scrolls.
+ */
+function TopBar() {
   const pathname = usePathname();
   const { learnerId, courses, library } = useAppState();
   const lessonCount = courses.reduce((n, c) => n + c.modules.filter((m) => m.lesson).length, 0) + library.length;
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  // The pill continues the course you're in the middle of; otherwise it opens the topic box.
+  const current = courses.find((c) => c.status === "active");
+  const cta = current ? { href: `/courses/${current.id}`, label: "Continue" } : { href: "/#ask", label: "Start learning" };
 
   return (
-    <aside className="sidebar sticky top-0 hidden h-screen w-[248px] flex-shrink-0 flex-col border-r border-beige/60 bg-ink/40 px-5 py-7 lg:flex">
-      <Brand />
-      <nav className="mt-10 space-y-1.5" aria-label="Main">
-        {NAV.map(({ href, label, Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`nav-link flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium ${
-                active ? "nav-active bg-gold/15 text-gold" : "text-sand/80 hover:bg-sand/10 hover:text-sand"
-              }`}
-            >
-              <Icon size={20} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="mt-auto">
-        <LearnerPill learnerId={learnerId} lessonCount={lessonCount} tipPlacement="above" wide />
+    <header
+      className="top-bar surface-ink sticky top-0 z-40 transition-colors duration-300"
+      data-scrolled={scrolled || undefined}
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-10">
+        <Link href="/" className="group flex items-center gap-2.5" aria-label="Weavr home">
+          <span className="transition-transform duration-300 group-hover:-rotate-6">
+            <LogoMark size={34} />
+          </span>
+          <Wordmark className="text-xl" />
+        </Link>
+        <nav className="ml-auto hidden items-center gap-8 md:flex" aria-label="Main">
+          {NAV.map(({ href, label }) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className="top-link relative text-[15px] text-sand/85 hover:text-sand"
+                data-active={active || undefined}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="ml-auto flex items-center gap-3 md:ml-0">
+          <LearnerPill learnerId={learnerId} lessonCount={lessonCount} compact />
+          <Link href={cta.href} className="btn-primary rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap">
+            {cta.label}
+          </Link>
+        </div>
       </div>
-    </aside>
+    </header>
   );
 }
 
-/** Phones: brand on top, tabs along the bottom. */
-function MobileNav() {
+/** Phones: tabs along the bottom (the top bar stays for the logo and the pill). */
+function MobileTabs() {
   const pathname = usePathname();
   return (
-    <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-beige/60 bg-ink/80 px-4 py-3 lg:hidden">
-        <Brand />
-      </header>
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-beige/60 bg-ink/95 pb-[env(safe-area-inset-bottom)] lg:hidden"
-        aria-label="Main"
-      >
-        {NAV.map(({ href, label, Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${active ? "text-gold" : "text-sand/70"}`}
-            >
-              <Icon size={20} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-    </>
+    <nav
+      className="surface-ink fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-beige bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      aria-label="Main"
+    >
+      {NAV.map(({ href, label, Icon }) => {
+        const active = isActive(pathname, href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${active ? "text-gold" : "text-sand/70"}`}
+          >
+            <Icon size={20} />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -271,18 +281,16 @@ function Shell({ children }: { children: ReactNode }) {
   const { busy } = useAppState();
   return (
     <>
-      <CustomCursor />
+      <SmoothScroll />
       {busy && <TopProgressBar />}
-      <div className="relative z-[1] flex min-h-screen">
-        <Sidebar />
-        <div className="min-w-0 flex-1 pb-20 lg:pb-0">
-          <MobileNav />
-          <div className="px-4 sm:px-6 lg:px-10">
-            <ErrorBanner />
-          </div>
-          {children}
+      <TopBar />
+      <div className="relative z-[1] min-h-screen pb-20 md:pb-0">
+        <div className="px-4 sm:px-6 lg:px-10">
+          <ErrorBanner />
         </div>
+        {children}
       </div>
+      <MobileTabs />
       <BusyOverlay />
     </>
   );

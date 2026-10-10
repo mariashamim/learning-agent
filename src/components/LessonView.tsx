@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import { APPROACHES, isInteractive, lessonBlocks } from "@/lib/lessonBlocks";
+import { scrollToElement } from "./app/SmoothScroll";
 import { CoursePath } from "./CoursePath";
 import { HarnessTrace } from "./HarnessTrace";
 import { LessonBlock } from "./lesson/LessonBlock";
@@ -131,7 +132,7 @@ export function LessonView({
 
         {tutorNote && (
           <div className="mt-6 flex gap-3 rounded-2xl border border-beige bg-paper px-5 py-4">
-            <span className="font-display flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gold text-sm text-ink italic">
+            <span className="font-display flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gold-fill text-sm text-ink italic">
               T
             </span>
             <div>
@@ -158,7 +159,7 @@ export function LessonView({
       </Reveal>
 
       {sessionSteps > 0 && (
-        <div className="activity-progress sticky top-16 z-20 mt-6 flex items-center gap-3 rounded-full border border-gold/30 bg-ink/85 px-4 py-2 text-xs text-sand lg:top-4">
+        <div className="activity-progress sticky top-16 z-20 mt-6 flex items-center gap-3 rounded-full border border-gold/30 bg-well/95 px-4 py-2 text-xs text-sand backdrop-blur">
           <span className="font-semibold text-gold">Your session</span>
           <span className="flex flex-1 gap-1" aria-hidden>
             {blocks.map((b, i) =>
@@ -219,7 +220,7 @@ export function LessonView({
                   <button
                     key={q}
                     type="button"
-                    onClick={() => document.getElementById(`check-${q}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    onClick={() => scrollToElement(document.getElementById(`check-${q}`))}
                     className="rounded-full border border-gold/40 px-3 py-1 text-xs font-medium text-gold hover:bg-gold/10"
                   >
                     Go to check {checkOrder.indexOf(q) + 1}
@@ -287,7 +288,7 @@ function QuizOutcome({
 
   return (
     <motion.div
-      className="relative mt-6 rounded-2xl border border-gold/30 bg-ink px-6 py-5 text-sand"
+      className="relative mt-6 rounded-2xl border border-gold/30 bg-well px-6 py-5 text-sand"
       initial={{ opacity: 0, y: 12, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={spring.gentle}
@@ -304,7 +305,7 @@ function QuizOutcome({
           role="status"
         >
           <Burst trigger={l.id} />
-          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold font-display text-ink">{n}</span>
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold-fill font-display text-ink">{n}</span>
           <span>
             <span className="block text-xs font-semibold tracking-[0.16em] text-gold uppercase">Level {n} complete</span>
             <span className="block text-sm text-sand">{l.title}</span>

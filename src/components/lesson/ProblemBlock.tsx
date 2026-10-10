@@ -65,7 +65,7 @@ export function ProblemBlock({ b, onDone }: { b: ProblemData; onDone: () => void
         <label htmlFor={inputId} className="sr-only">
           Your answer
         </label>
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-beige bg-ink/40 px-4 focus-within:border-gold/60">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-beige bg-well/40 px-4 focus-within:border-gold/60">
           <input
             id={inputId}
             value={value}

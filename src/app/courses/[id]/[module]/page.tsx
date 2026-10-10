@@ -16,7 +16,8 @@ export default function ModulePage() {
 
   if (!course || !(index >= 0 && index < course.modules.length)) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
+      <main className="surface-cream min-h-screen">
+        <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
         {loaded ? (
           <>
             <p className="font-display text-3xl text-sand">That module doesn&rsquo;t exist.</p>
@@ -27,6 +28,7 @@ export default function ModulePage() {
         ) : (
           <div className="skeleton mx-auto h-64 rounded-3xl" />
         )}
+        </div>
       </main>
     );
   }
@@ -39,7 +41,8 @@ export default function ModulePage() {
   if (!lesson) {
     const isCurrent = index === course.currentModule;
     return (
-      <main className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+      <main className="surface-cream min-h-screen">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
         <Link href={`/courses/${course.id}`} className="text-sm text-taupe hover:text-gold">
           ← {course.title}
         </Link>
@@ -54,6 +57,7 @@ export default function ModulePage() {
               Write this module
             </button>
           )}
+        </div>
         </div>
       </main>
     );
@@ -74,7 +78,9 @@ export default function ModulePage() {
   };
 
   return (
-    <main className="lesson-page mx-auto max-w-3xl px-4 pt-8 pb-24 sm:px-6">
+    // Lessons read on a calm cream page; code and graphs keep their dark windows.
+    <main className="lesson-page surface-cream min-h-screen">
+      <div className="mx-auto max-w-3xl px-4 pt-8 pb-24 sm:px-6">
       <Link href={`/courses/${course.id}`} className="text-sm text-taupe hover:text-gold">
         ← {course.title}
       </Link>
@@ -86,6 +92,7 @@ export default function ModulePage() {
         onContinue={(topic) => learn(topic)}
         onOpenModule={(c, i) => router.push(`/courses/${c.id}/${i + 1}`)}
       />
+      </div>
     </main>
   );
 }

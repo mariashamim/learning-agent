@@ -3,6 +3,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useAppState } from "@/components/app/AppState";
 import { Garden } from "@/components/app/Garden";
+import { CreamSection, PageHero } from "@/components/app/PageHero";
 import { ClockIcon, FlameIcon, StarIcon } from "@/components/Icons";
 import { learningStats } from "@/components/stats";
 import type { Course } from "@/components/types";
@@ -20,12 +21,19 @@ export default function ProgressPage() {
   );
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pt-10 pb-24 sm:px-6 lg:px-10">
-      <p className="text-xs font-medium tracking-[0.25em] text-gold uppercase">Progress</p>
-      <h1 className="font-display mt-2 text-5xl text-sand sm:text-6xl">Your knowledge garden</h1>
-      <p className="mt-3 max-w-xl text-taupe">Every course is a plant. Finish modules to help it grow, and a finished course blooms.</p>
-
-      <section className="mt-10">
+    <main>
+      <PageHero
+        kicker="Progress"
+        aside={loaded ? `${stats.doneModules} of ${stats.totalModules} modules` : undefined}
+        title={
+          <>
+            Your knowledge <span className="accent-word">garden</span>
+          </>
+        }
+        lead="Every course is a plant. Finish modules to help it grow, and a finished course blooms."
+      />
+      <CreamSection>
+      <section>
         <Garden courses={courses} />
       </section>
 
@@ -44,6 +52,7 @@ export default function ProgressPage() {
 
       <WeekStrip courses={courses} />
       <Milestones courses={courses} streak={stats.streak} />
+      </CreamSection>
     </main>
   );
 }
@@ -97,7 +106,7 @@ function WeekStrip({ courses }: { courses: Course[] }) {
           const on = active.has(d.key);
           return (
             <div key={d.key} className="flex flex-1 flex-col items-center gap-2">
-              <span className={`week-dot flex h-10 w-10 items-center justify-center rounded-full ${on ? "bg-gold text-ink" : "border border-beige text-taupe"}`}>
+              <span className={`week-dot flex h-10 w-10 items-center justify-center rounded-full ${on ? "bg-gold-fill text-ink" : "border border-beige text-taupe"}`}>
                 {on ? "✓" : ""}
               </span>
               <span className={`text-xs ${d.key === today ? "font-semibold text-gold" : "text-taupe"}`}>{d.label}</span>

@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import { AppShell } from "@/components/app/AppShell";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+// Editorial pair: a clean grotesque for text and headlines, an elegant serif
+// for the italic accent words inside them.
+const sans = Instrument_Sans({
+  variable: "--font-instrument-sans",
   subsets: ["latin"],
-  axes: ["SOFT", "opsz"],
-  style: ["normal", "italic"],
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const serif = Instrument_Serif({
+  variable: "--font-instrument-serif",
   subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 const mono = JetBrains_Mono({
@@ -30,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       style={{ colorScheme: "dark" }}
-      className={`${fraunces.variable} ${inter.variable} ${mono.variable} h-full antialiased dark`}
+      className={`${sans.variable} ${serif.variable} ${mono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full">
         <AppShell>{children}</AppShell>

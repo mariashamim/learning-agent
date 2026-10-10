@@ -73,7 +73,7 @@ export function Scrollytelling() {
 /** One SVG whose layers fade, draw and grow according to the active step. */
 function StoryStage({ step }: { step: number }) {
   return (
-    <div className="story-stage relative h-full overflow-hidden rounded-3xl border border-beige bg-gradient-to-br from-violet/70 via-paper to-magenta/60" data-step={step}>
+    <div className="story-stage surface-ink relative h-full overflow-hidden rounded-3xl border border-beige bg-ink bg-gradient-to-br from-violet/70 via-paper to-magenta/60" data-step={step}>
       <svg viewBox="0 0 400 400" className="h-full w-full" aria-hidden>
         {/* step 0: a topic being typed */}
         <g className="layer layer-0">

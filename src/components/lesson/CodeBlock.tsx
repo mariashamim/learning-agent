@@ -36,7 +36,7 @@ function CodeWindow({ code, language, active }: { code: string; language: string
   // One highlight per window that glides from line to line as the trace runs.
   const highlightId = useId();
   return (
-    <div className="code-window" role="figure" aria-label={`${language} code, ${lines.length} lines`}>
+    <div className="code-window surface-ink" role="figure" aria-label={`${language} code, ${lines.length} lines`}>
       <div className="code-bar" aria-hidden>
         <span />
         <span />
@@ -110,7 +110,7 @@ function ChoiceCode({ b, onDone }: { b: CodeData; onDone: () => void }) {
         })}
       </div>
       {last !== undefined && (
-        <div key={last} role="status" className="activity-feedback mt-4 rounded-2xl border border-beige bg-ink/40 p-4">
+        <div key={last} role="status" className="activity-feedback mt-4 rounded-2xl border border-beige bg-well/40 p-4">
           <p className={`text-xs font-semibold tracking-[0.14em] uppercase ${b.options[last].correct ? "text-sage" : "text-red-300"}`}>
             {b.options[last].correct ? (tried.length === 1 ? "Exactly right" : "Got it") : "Not this one"}
           </p>
@@ -164,7 +164,7 @@ function TraceCode({ b, onDone }: { b: CodeData; onDone: () => void }) {
       takeawayLabel="What happened"
     >
       <CodeWindow code={b.code} language={b.language} active={current?.line} />
-      <div className="trace-panel mt-4 rounded-2xl border border-beige bg-ink/40 p-4" aria-live="polite">
+      <div className="trace-panel mt-4 rounded-2xl border border-beige bg-well/40 p-4" aria-live="polite">
         {current ? (
           <>
             <p className="text-xs font-semibold tracking-[0.14em] text-gold uppercase">

@@ -130,7 +130,7 @@ function LevelSection({
             <span className="relative flex h-11 w-11 items-center justify-center">
               <motion.span
                 className={`level-badge flex h-11 w-11 items-center justify-center rounded-2xl font-display text-lg ${
-                  finished ? "bg-gold text-ink" : level.status === "current" ? "bg-gold/20 text-gold" : "bg-sand/10 text-taupe"
+                  finished ? "bg-gold-fill text-ink" : level.status === "current" ? "bg-gold/20 text-gold" : "bg-sand/10 text-taupe"
                 }`}
                 animate={celebrate ? { scale: [1, 1.18, 1], rotate: [0, -6, 0] } : undefined}
                 transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.25 }}

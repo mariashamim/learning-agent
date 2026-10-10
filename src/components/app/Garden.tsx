@@ -10,7 +10,7 @@ import { courseProgress } from "./CourseCards";
  */
 export function Garden({ courses }: { courses: Course[] }) {
   return (
-    <div className="garden relative overflow-hidden rounded-[2rem] border border-beige bg-gradient-to-b from-violet/70 via-violet/30 to-magenta/40">
+    <div className="garden surface-ink relative overflow-hidden rounded-[2rem] border border-beige bg-ink bg-gradient-to-b from-violet/70 via-violet/30 to-magenta/40">
       {/* sky: sun and drifting fireflies */}
       <div className="garden-sun absolute top-8 right-10 h-16 w-16 rounded-full bg-gold" aria-hidden />
       {Array.from({ length: 10 }).map((_, i) => (
@@ -42,7 +42,7 @@ export function Garden({ courses }: { courses: Course[] }) {
           })
         )}
       </div>
-      <div className="h-5 bg-ink/60" aria-hidden />
+      <div className="h-5 bg-well/60" aria-hidden />
     </div>
   );
 }

@@ -46,7 +46,7 @@ export function DiagramActivity({ a, onDone }: { a: DiagramData; onDone: () => v
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <motion.svg
           viewBox="0 0 400 300"
-          className="diagram-svg w-full rounded-2xl bg-ink/40"
+          className="diagram-svg w-full rounded-2xl bg-well/40"
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, amount: 0.4 }}
@@ -126,7 +126,7 @@ export function DiagramActivity({ a, onDone }: { a: DiagramData; onDone: () => v
             );
           })}
         </motion.svg>
-        <div className="rounded-2xl border border-beige bg-ink/30 p-4">
+        <div className="rounded-2xl border border-beige bg-well/30 p-4">
           {active === null ? (
             <p className="text-sm text-taupe">Tap any node to see what it is and how it connects.</p>
           ) : (

@@ -69,7 +69,7 @@ export function SoundActivity({ a, onDone }: { a: SoundData; onDone: () => void 
 
   return (
     <ActivityFrame type="sound" title={a.title} prompt={a.prompt} reveal={a.reveal} done={played.size > 0}>
-      <div className="relative h-28 overflow-hidden rounded-2xl border border-beige bg-ink/50 p-2" aria-hidden>
+      <div className="relative h-28 overflow-hidden rounded-2xl border border-beige bg-well/50 p-2" aria-hidden>
         <div className="relative flex h-full">
           {whites.map((k) => (
             <span key={k} className="piano-white flex-1 rounded-b-md border-r border-ink/40" data-lit={lit.includes(k) || undefined} />
@@ -97,8 +97,8 @@ export function SoundActivity({ a, onDone }: { a: SoundData; onDone: () => void 
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {a.clips.map((c, i) => (
-          <button key={i} type="button" onClick={() => play(i)} className="sound-clip flex items-start gap-3 rounded-2xl border border-beige bg-ink/30 p-4 text-left hover:border-gold/60">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold text-ink">▶</span>
+          <button key={i} type="button" onClick={() => play(i)} className="sound-clip flex items-start gap-3 rounded-2xl border border-beige bg-well/30 p-4 text-left hover:border-gold/60">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-fill text-ink">▶</span>
             <span>
               <span className="block font-semibold text-sand">{c.label}</span>
               <span className="block text-xs text-gold">{c.notes.join(" · ")}</span>

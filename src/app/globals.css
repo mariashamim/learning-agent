@@ -1,31 +1,78 @@
 @import "tailwindcss";
 
-:root {
-  /* Gold & berry palette (dark). Token names are historical; the comment on
-     each line says what it is now. Brand colours: #c88b00 gold (buttons),
-     #e1b983 sand (text), #7a5498 violet and #ad2f70 magenta (gradients).
-     The deep purples are darker shades of the violet, so long text sits on a
-     surface dark enough to read comfortably. */
-  --gold: #c88b00;
-  --sand: #e1b983;
-  --violet: #7a5498;
-  --magenta: #ad2f70;
-  --ink: #150a1e; /* darkest: text on gold, code/trace panels */
+/* Ink and gold (editorial). The app alternates dark "ink" sections and warm
+   cream sections. Token names are historical (they were chosen for the
+   first warm palette); each is now a role, and a cream section re-maps the
+   roles (see .surface-cream), so components re-theme without rewrites.
 
-  --background: #1d0e29; /* deep base: inputs, chips, page fallback */
-  --paper: #2a1539; /* cards and reading surfaces */
-  --foreground: #e1b983; /* primary text: sand */
-  --espresso: #e1b983; /* (legacy name) primary text */
-  --taupe: #bd9e85; /* muted text: dimmed sand */
-  --beige: #573a6c; /* borders */
-  --peach: #e1b983; /* soft accent / highlight tints: sand */
-  --coffee: #c88b00; /* primary accent: gold */
-  --indigo: #7a5498; /* violet */
-  --amber: #ad2f70; /* magenta: streak / secondary accent */
-  --sage: #6cc08a; /* success (correct answers), lightened for dark */
+   Roles:  --sand / --espresso / --foreground  primary text
+           --taupe                             muted text
+           --beige                             hairlines and borders
+           --paper                             cards
+           --well                              recessed panels inside cards
+           --background                        section ground
+           --gold / --coffee                   accent for text, lines, small fills
+           --gold-fill                         accent for buttons (ink text on it)
+           --ink                               always the darkest ink (text on gold) */
+:root {
+  --ink: #1a0f24;
+  --cream: #f6f1e7;
+  --gold-fill: #e0a300;
+  --berry: #a3336d;
+  --violet: #7a5498;
+  --magenta: #a3336d;
+  --indigo: #7a5498;
+  --amber: #a3336d;
 
   --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* The dark roles: the default, and an "ink island" (code windows, graphs)
+   that stays dark inside a cream section. */
+:root,
+.surface-ink {
+  --gold: #e0a300;
+  --coffee: #e0a300;
+  --sand: #f6f1e7;
+  --espresso: #f6f1e7;
+  --foreground: #f6f1e7;
+  --peach: #f6f1e7;
+  --taupe: #bfae9a;
+  --beige: rgba(246, 241, 231, 0.16);
+  --paper: #241631;
+  --well: #120a19;
+  --background: #1a0f24;
+  --sage: #6cc08a;
+  --miss-text: #fecaca;
+  --hit-text: #c9f0d6;
+}
+
+/* A cream section: the same roles, light. Contrast on cream: text 16:1,
+   muted 5.4:1, gold text 4.8:1, success 4.5:1. Buttons keep the bright gold
+   fill (ink on it is 8.3:1). */
+.surface-cream {
+  --gold: #8f6200;
+  --coffee: #8f6200;
+  --sand: #1a0f24;
+  --espresso: #1a0f24;
+  --foreground: #1a0f24;
+  --peach: #1a0f24;
+  --taupe: #6b5d70;
+  --beige: #d9cebd;
+  --paper: #fffaf1;
+  --well: #efe7d9;
+  --background: #f6f1e7;
+  --sage: #2f7d4f;
+  --miss-text: #b42318;
+  --hit-text: #1f6b41;
+  background-color: var(--background);
+  color: var(--foreground);
+  color-scheme: light;
+}
+.surface-ink {
+  color: var(--foreground);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -45,25 +92,22 @@
   --color-violet: var(--violet);
   --color-magenta: var(--magenta);
   --color-ink: var(--ink);
+  --color-well: var(--well);
   --color-amber: var(--amber);
+  --color-berry: var(--berry);
+  --color-gold-fill: var(--gold-fill);
 
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html {
-  scroll-behavior: smooth;
+  background: var(--ink);
 }
 
-/* Flat warm cream; the cursor glow layers on top. */
 body {
   background-color: var(--background);
-  background-image:
-    radial-gradient(ellipse 70% 60% at 0% 0%, rgba(122, 84, 152, 0.75), transparent 60%),
-    radial-gradient(ellipse 60% 55% at 100% 100%, rgba(173, 47, 112, 0.6), transparent 60%),
-    linear-gradient(150deg, #3a1f52 0%, #2a1236 50%, #3d1430 100%);
-  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -71,15 +115,49 @@ body {
 }
 
 ::selection {
-  background: var(--gold);
+  background: var(--gold-fill);
   color: var(--ink);
 }
 
+/* Headlines are the clean sans, set large and tight; italic words inside
+   them switch to the serif, as in the editorial reference. */
 .font-display {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+.font-display.italic,
+.font-display .italic,
+.font-display em,
+.font-serif {
   font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  font-variation-settings: "SOFT" 30;
-  letter-spacing: -0.015em;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.accent-word {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.12em;
+}
+
+/* "CREATIVITY AS A SERVICE ——— [ ... ] ——— 2026": the small caps meta line. */
+.meta-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--taupe);
+}
+.meta-line > .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--beige);
 }
 
 :focus-visible {
@@ -88,113 +166,21 @@ body {
   border-radius: 6px;
 }
 
-/* ============ 1. Custom cursor ============ */
-@media (hover: hover) and (pointer: fine) {
-  html.custom-cursor,
-  html.custom-cursor * {
-    cursor: none !important;
-  }
-}
-
-.cursor-dot,
-.cursor-ring,
-.cursor-glow {
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  will-change: transform;
-}
-
-.cursor-dot {
-  z-index: 9999;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
-  border-radius: 50%;
-  background: var(--peach);
-  /* Hairline so a peach dot stays findable on cream. */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
-  opacity: 0;
-  transition: opacity 200ms ease;
-}
-
-.cursor-ring {
-  z-index: 9998;
-  width: 40px;
-  height: 40px;
-  margin: -20px 0 0 -20px;
-}
-
-.cursor-ring-inner {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: rgba(200, 139, 0, 0.55);
-  border: 1.5px solid var(--peach);
-  box-shadow: 0 0 12px 3px var(--peach);
-  filter: blur(1.5px);
-  opacity: 0;
-  transition:
-    transform 260ms var(--ease-spring),
-    opacity 220ms ease;
-}
-
-html.cursor-visible .cursor-dot {
-  opacity: 1;
-}
-html.cursor-visible .cursor-ring[data-state="bg"] .cursor-ring-inner {
-  opacity: 0.2;
-}
-html.cursor-visible .cursor-ring[data-state="content"] .cursor-ring-inner {
-  opacity: 0.3;
-}
-html.cursor-visible .cursor-ring[data-state="hover"] .cursor-ring-inner {
-  opacity: 0.6;
-  transform: scale(1.6); /* 64px */
-}
-html.cursor-visible .cursor-ring[data-pressed] .cursor-ring-inner {
-  transform: scale(0.75); /* 30px */
-}
-
-/* ============ 2. Cursor-reactive background ============ */
-.cursor-glow {
-  z-index: 0;
-  width: 1200px;
-  height: 1200px;
-  margin: -600px 0 0 -600px;
-  background: radial-gradient(circle closest-side, rgba(200, 139, 0, 0.12), rgba(200, 139, 0, 0));
-  opacity: 0;
-  transition: opacity 600ms ease;
-}
-html.cursor-visible .cursor-glow {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  .cursor-dot,
-  .cursor-ring,
-  .cursor-glow {
-    display: none;
-  }
-}
-
-/* ============ 3. Magnetic primary button ============ */
+/* ============ Primary button ============ */
+/* Bright gold with ink text on any ground (8.3:1). Flat, editorial. */
 .btn-primary {
-  background-color: var(--gold);
+  background-color: var(--gold-fill);
   color: var(--ink);
-  box-shadow:
-    0 0 0 1px rgba(225, 185, 131, 0.35) inset,
-    0 0 24px -4px rgba(200, 139, 0, 0.75),
-    0 8px 20px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18), 0 10px 22px -14px rgba(26, 15, 36, 0.55);
+  transition: background-color 200ms ease, transform 200ms var(--ease-out-expo), box-shadow 200ms ease;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #d99a0d;
-  box-shadow:
-    0 0 0 1px rgba(225, 185, 131, 0.5) inset,
-    0 0 36px -2px rgba(200, 139, 0, 0.95),
-    0 10px 24px -10px rgba(0, 0, 0, 0.6);
+  background-color: #f0b41a;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18), 0 14px 26px -14px rgba(26, 15, 36, 0.6);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 .btn-primary:disabled {
   cursor: not-allowed;
@@ -208,30 +194,6 @@ html.cursor-visible .cursor-glow {
   transform: translateX(2px);
 }
 
-.magnetic {
-  transition:
-    translate 400ms ease-out,
-    scale 250ms var(--ease-spring),
-    background-color 200ms ease,
-    box-shadow 200ms ease,
-    opacity 200ms ease;
-}
-.magnetic[data-magnet="active"] {
-  transition:
-    translate 140ms ease-out,
-    scale 250ms var(--ease-spring),
-    background-color 200ms ease,
-    box-shadow 200ms ease,
-    opacity 200ms ease;
-}
-.magnetic:active:not(:disabled) {
-  scale: 0.97;
-  transition:
-    translate 140ms ease-out,
-    scale 80ms ease-out,
-    background-color 200ms ease,
-    box-shadow 200ms ease;
-}
 
 /* ============ 4. Topic input ============ */
 .topic-input {
@@ -250,7 +212,7 @@ html.cursor-visible .cursor-glow {
 .topic-input:focus,
 .topic-input:focus-visible {
   border-color: var(--taupe);
-  box-shadow: 0 0 0 4px rgba(200, 139, 0, 0.4);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 40%, transparent);
   outline: none;
 }
 .topic-input::placeholder {
@@ -373,7 +335,7 @@ html.cursor-visible .cursor-glow {
 }
 .quiz-option[data-state="idle"]:hover {
   border-color: var(--taupe);
-  background-color: rgba(200, 139, 0, 0.2);
+  background-color: color-mix(in srgb, var(--gold) 20%, transparent);
 }
 .quiz-option[data-state="idle"]:hover .quiz-letter {
   border-color: var(--taupe);
@@ -383,7 +345,7 @@ html.cursor-visible .cursor-glow {
 .quiz-option[data-state="correct"] {
   border-color: var(--sage);
   background-color: rgba(108, 192, 138, 0.14);
-  color: #c9f0d6;
+  color: var(--hit-text);
 }
 .quiz-option[data-state="correct"] .quiz-letter {
   border-color: var(--sage);
@@ -397,7 +359,7 @@ html.cursor-visible .cursor-glow {
 .quiz-option[data-state="wrong"] {
   border-color: #f87171;
   background-color: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
+  color: var(--miss-text);
   animation: soft-miss 420ms ease-out;
 }
 .quiz-option[data-state="wrong"] .quiz-letter {
@@ -636,8 +598,8 @@ html.cursor-visible .cursor-glow {
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .ask-card:focus-within {
-  border-color: rgba(200, 139, 0, 0.7);
-  box-shadow: 0 0 0 4px rgba(200, 139, 0, 0.18), 0 0 40px -6px rgba(200, 139, 0, 0.35), 0 24px 50px -24px rgba(0, 0, 0, 0.6);
+  border-color: color-mix(in srgb, var(--gold) 70%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent), 0 0 40px -6px color-mix(in srgb, var(--gold) 35%, transparent), 0 24px 50px -24px rgba(0, 0, 0, 0.6);
 }
 .topic-input-bare {
   border: 0;
@@ -662,7 +624,7 @@ html.cursor-visible .cursor-glow {
 }
 .search-box:focus-within {
   border-color: rgba(0, 0, 0, 0.45);
-  box-shadow: 0 0 0 4px rgba(200, 139, 0, 0.22);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 22%, transparent);
 }
 
 .start-card {
@@ -676,7 +638,7 @@ html.cursor-visible .cursor-glow {
 .start-card:hover:not(:disabled) {
   transform: translateY(-3px);
   border-color: var(--peach);
-  background-color: rgba(200, 139, 0, 0.3);
+  background-color: color-mix(in srgb, var(--gold) 30%, transparent);
   box-shadow: 0 14px 28px -20px rgba(0, 0, 0, 0.45);
 }
 .start-icon {
@@ -745,7 +707,7 @@ html.cursor-visible .cursor-glow {
 
 /* ---- logo + nav ---- */
 .logo-mark {
-  filter: drop-shadow(0 0 10px rgba(200, 139, 0, 0.35));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--gold) 35%, transparent));
 }
 .nav-link {
   transition: background-color 200ms ease, color 200ms ease;
@@ -766,7 +728,7 @@ html.cursor-visible .cursor-glow {
 .course-tile:hover,
 .catalog-tile:hover,
 .continue-card:hover {
-  box-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.8), 0 0 30px -12px rgba(200, 139, 0, 0.5);
+  box-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.8), 0 0 30px -12px color-mix(in srgb, var(--gold) 50%, transparent);
 }
 .catalog-tile:hover:not(:disabled) {
   transform: translateY(-4px);
@@ -781,7 +743,7 @@ html.cursor-visible .cursor-glow {
   transform: scale(0.85);
 }
 .star-btn[data-on] {
-  box-shadow: 0 0 16px -2px rgba(200, 139, 0, 0.9);
+  box-shadow: 0 0 16px -2px color-mix(in srgb, var(--gold) 90%, transparent);
   animation: star-pop 350ms var(--ease-spring);
 }
 @keyframes star-pop {
@@ -798,7 +760,7 @@ html.cursor-visible .cursor-glow {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  border: 2px dashed rgba(200, 139, 0, 0.55);
+  border: 2px dashed color-mix(in srgb, var(--gold) 55%, transparent);
   animation: spin 24s linear infinite;
 }
 
@@ -806,7 +768,7 @@ html.cursor-visible .cursor-glow {
 /* ---- progress ---- */
 .progress-fill {
   transition: width 1200ms var(--ease-out-expo);
-  box-shadow: 0 0 14px -2px rgba(200, 139, 0, 0.7);
+  box-shadow: 0 0 14px -2px color-mix(in srgb, var(--gold) 70%, transparent);
 }
 .milestone {
   transition: transform 250ms var(--ease-out-expo);
@@ -817,7 +779,7 @@ html.cursor-visible .cursor-glow {
 
 /* ---- knowledge garden ---- */
 .garden-sun {
-  box-shadow: 0 0 60px 10px rgba(200, 139, 0, 0.55);
+  box-shadow: 0 0 60px 10px color-mix(in srgb, var(--gold) 55%, transparent);
   animation: art-pulse 5s ease-in-out infinite;
 }
 .firefly {
@@ -826,7 +788,7 @@ html.cursor-visible .cursor-glow {
   height: 5px;
   border-radius: 50%;
   background: var(--sand);
-  box-shadow: 0 0 10px 2px rgba(225, 185, 131, 0.8);
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--sand) 80%, transparent);
   animation: firefly 7s ease-in-out infinite;
 }
 @keyframes firefly {
@@ -998,7 +960,7 @@ html.cursor-visible .cursor-glow {
   transition: border-color 300ms ease;
 }
 .activity-card[data-done] {
-  border-color: rgba(200, 139, 0, 0.6);
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
 }
 .activity-glow {
   position: absolute;
@@ -1029,25 +991,25 @@ html.cursor-visible .cursor-glow {
 /* choices (predict / scenario) */
 .choice-option {
   border-color: var(--beige);
-  background: rgba(21, 10, 30, 0.35);
+  background: color-mix(in srgb, var(--well) 35%, transparent);
   color: var(--sand);
   transition: border-color 200ms ease, background-color 200ms ease, transform 200ms var(--ease-out-expo);
 }
 .choice-option[data-state="idle"]:not(:disabled):hover {
   border-color: var(--gold);
-  background: rgba(200, 139, 0, 0.1);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
   transform: translateY(-2px);
 }
 .choice-option[data-state="good"],
 .choice-option[data-state="answer"] {
   border-color: var(--sage);
   background: rgba(108, 192, 138, 0.14);
-  color: #c9f0d6;
+  color: var(--hit-text);
 }
 .choice-option[data-state="bad"] {
   border-color: #f87171;
   background: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
+  color: var(--miss-text);
   animation: soft-miss 420ms ease-out;
 }
 .choice-option:disabled[data-state="idle"] {
@@ -1067,7 +1029,7 @@ html.cursor-visible .cursor-glow {
 }
 .sort-chip[data-state="selected"] {
   border-color: var(--gold);
-  background: rgba(200, 139, 0, 0.18);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
   transform: scale(1.04);
 }
 .sort-chip[data-state="good"] {
@@ -1084,18 +1046,18 @@ html.cursor-visible .cursor-glow {
 }
 .sort-ghost {
   transform: rotate(-3deg) scale(1.05);
-  box-shadow: 0 0 30px -6px rgba(200, 139, 0, 0.8);
+  box-shadow: 0 0 30px -6px color-mix(in srgb, var(--gold) 80%, transparent);
 }
 
 /* order */
 .order-row {
   border-color: var(--beige);
-  background: rgba(21, 10, 30, 0.35);
+  background: color-mix(in srgb, var(--well) 35%, transparent);
   transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
 }
 .order-row[data-state="dragging"] {
   border-color: var(--gold);
-  background: rgba(200, 139, 0, 0.12);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
   transform: scale(1.02);
 }
 .order-row[data-state="good"] {
@@ -1109,7 +1071,7 @@ html.cursor-visible .cursor-glow {
 
 /* timeline */
 .timeline-fill {
-  box-shadow: 0 0 12px rgba(200, 139, 0, 0.6);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 60%, transparent);
 }
 .timeline-dot {
   position: relative;
@@ -1120,13 +1082,13 @@ html.cursor-visible .cursor-glow {
 }
 .timeline-dot[data-state="seen"] {
   border-color: var(--gold);
-  background: rgba(200, 139, 0, 0.35);
+  background: color-mix(in srgb, var(--gold) 35%, transparent);
 }
 .timeline-dot[data-state="active"] {
   border-color: var(--gold);
   background: var(--gold);
   transform: scale(1.2);
-  box-shadow: 0 0 20px rgba(200, 139, 0, 0.8);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--gold) 80%, transparent);
 }
 
 /* chart */
@@ -1152,7 +1114,7 @@ html.cursor-visible .cursor-glow {
   border-radius: 50%;
   background: var(--sand);
   border: 3px solid var(--gold);
-  box-shadow: 0 0 14px rgba(200, 139, 0, 0.9);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 90%, transparent);
   cursor: grab;
 }
 .sim-range::-moz-range-thumb {
@@ -1223,16 +1185,16 @@ html.cursor-visible .cursor-glow {
 
 /* sound: mini piano */
 .piano-white {
-  background: linear-gradient(#f3e6d0, #e1b983);
+  background: linear-gradient(#fffaf1, #e9dcc4);
   transition: background 120ms ease, box-shadow 120ms ease;
 }
 .piano-black {
   z-index: 1;
-  background: linear-gradient(#2a1539, #150a1e);
+  background: linear-gradient(#2c1d3a, #120a19);
   transition: background 120ms ease, box-shadow 120ms ease;
 }
 .piano-white[data-lit] {
-  background: linear-gradient(#ffe2a6, #c88b00);
+  background: linear-gradient(#ffe2a6, var(--gold));
   box-shadow: inset 0 -8px 16px rgba(173, 47, 112, 0.5);
 }
 .piano-black[data-lit] {
@@ -1270,7 +1232,7 @@ html.cursor-visible .cursor-glow {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: rgba(225, 185, 131, 0.25);
+  background: color-mix(in srgb, var(--sand) 25%, transparent);
 }
 .code-bar em {
   margin-left: auto;
@@ -1302,7 +1264,7 @@ html.cursor-visible .cursor-glow {
 .code-highlight {
   position: absolute;
   inset: 0 0 0 -3px;
-  background: rgba(200, 139, 0, 0.16);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
   border-left: 3px solid var(--gold);
   pointer-events: none;
 }
@@ -1311,12 +1273,12 @@ html.cursor-visible .cursor-glow {
 }
 .trace-var {
   border-color: rgba(87, 58, 108, 0.8);
-  background: rgba(21, 10, 30, 0.45);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
   transition: border-color 300ms ease, background-color 300ms ease;
 }
 .trace-var[data-changed] {
-  border-color: rgba(200, 139, 0, 0.6);
-  background: rgba(200, 139, 0, 0.12);
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
 }
 .code-no {
   width: 2.75rem;
@@ -1363,12 +1325,12 @@ html.cursor-visible .cursor-glow {
 .compare-cell {
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(21, 10, 30, 0.4);
+  background: color-mix(in srgb, var(--well) 40%, transparent);
   font-size: 14px;
   line-height: 1.55;
-  color: rgba(225, 185, 131, 0.92);
+  color: color-mix(in srgb, var(--sand) 92%, transparent);
 }
-.compare-row .compare-cell:nth-child(2) { box-shadow: inset 3px 0 0 rgba(200, 139, 0, 0.6); }
+.compare-row .compare-cell:nth-child(2) { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 60%, transparent); }
 .compare-row .compare-cell:nth-child(3) { box-shadow: inset 3px 0 0 rgba(215, 155, 208, 0.6); }
 @media (max-width: 639px) {
   .compare-head { display: none; }
@@ -1390,7 +1352,7 @@ html.cursor-visible .cursor-glow {
 .inline-code {
   padding: 0.05em 0.35em;
   border-radius: 0.35em;
-  background: rgba(21, 10, 30, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   border: 1px solid rgba(87, 58, 108, 0.7);
   font-size: 0.88em;
   font-style: normal;
@@ -1419,7 +1381,7 @@ html.cursor-visible .cursor-glow {
 /* ============ Woven threads (hero, loading) ============ */
 .woven { overflow: visible; }
 .woven-warp {
-  stroke: rgba(225, 185, 131, 0.12);
+  stroke: color-mix(in srgb, var(--sand) 12%, transparent);
   stroke-width: 1;
 }
 .woven-weft {
@@ -1438,7 +1400,7 @@ html.cursor-visible .cursor-glow {
   fill: none;
   stroke-linecap: round;
   stroke-dasharray: 9 91;
-  filter: drop-shadow(0 0 4px rgba(200, 139, 0, 0.8));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gold) 80%, transparent));
   animation: woven-shuttle var(--shuttle-speed, 6s) linear var(--shuttle-delay, 0s) infinite;
 }
 @keyframes woven-shuttle {
@@ -1460,17 +1422,17 @@ html.cursor-visible .cursor-glow {
 
 /* ============ Course journey map ============ */
 .level-section[data-tone="violet"] {
-  background: radial-gradient(120% 70% at 0% 0%, rgba(122, 84, 152, 0.28), transparent 60%), rgba(42, 21, 57, 0.45);
+  background: radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--violet) 14%, transparent), transparent 60%), var(--paper);
 }
 .level-section[data-tone="magenta"] {
-  background: radial-gradient(120% 70% at 100% 0%, rgba(173, 47, 112, 0.22), transparent 60%), rgba(42, 21, 57, 0.45);
+  background: radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--berry) 11%, transparent), transparent 60%), var(--paper);
 }
 .level-section[data-level-status="done"] {
-  border-color: rgba(200, 139, 0, 0.45);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }
 .map-trail {
   fill: none;
-  stroke: rgba(225, 185, 131, 0.28);
+  stroke: color-mix(in srgb, var(--sand) 28%, transparent);
   stroke-width: 3;
   stroke-linecap: round;
 }
@@ -1479,26 +1441,26 @@ html.cursor-visible .cursor-glow {
   stroke: var(--gold);
   stroke-width: 4;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 5px rgba(200, 139, 0, 0.55));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) 55%, transparent));
 }
 .map-node {
   border: 2px solid var(--beige);
   background: var(--paper);
   color: var(--taupe);
-  box-shadow: 0 6px 0 rgba(21, 10, 30, 0.6);
+  box-shadow: 0 6px 0 rgba(26, 15, 36, 0.14);
   transition: box-shadow 200ms ease, border-color 200ms ease;
 }
 .map-node[data-state="done"] {
-  border-color: var(--gold);
-  background: var(--gold);
+  border-color: var(--gold-fill);
+  background: var(--gold-fill);
   color: var(--ink);
-  box-shadow: 0 6px 0 #8a5f00;
+  box-shadow: 0 6px 0 #a87600;
 }
 .map-node[data-state="current"] {
   border-color: var(--gold);
-  background: radial-gradient(circle at 35% 30%, #3b2050, var(--paper));
+  background: var(--paper);
   color: var(--gold);
-  box-shadow: 0 6px 0 rgba(200, 139, 0, 0.35), 0 0 24px rgba(200, 139, 0, 0.25);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--gold) 35%, transparent), 0 0 24px color-mix(in srgb, var(--gold) 25%, transparent);
 }
 .map-node[data-state="locked"] {
   border-style: dashed;
@@ -1516,7 +1478,7 @@ html.cursor-visible .cursor-glow {
   position: absolute;
   inset: -7px;
   border-radius: 999px;
-  border: 2px solid rgba(200, 139, 0, 0.55);
+  border: 2px solid color-mix(in srgb, var(--gold) 55%, transparent);
   animation: node-breathe 2.4s ease-in-out infinite;
 }
 @keyframes node-breathe {
@@ -1543,7 +1505,7 @@ html.cursor-visible .cursor-glow {
 }
 
 /* ============ Graph activity ============ */
-.graph-axis { stroke: rgba(225, 185, 131, 0.3); stroke-width: 1; }
+.graph-axis { stroke: color-mix(in srgb, var(--sand) 30%, transparent); stroke-width: 1; }
 .graph-tick { fill: var(--taupe); font-size: 10px; font-family: var(--font-mono); }
 .graph-label { fill: var(--sand); font-size: 11px; }
 .graph-ghost {
@@ -1558,14 +1520,138 @@ html.cursor-visible .cursor-glow {
   stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 6px rgba(200, 139, 0, 0.45));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--gold) 45%, transparent));
 }
 
-/* Home backdrop: threads fade out toward the text and the bottom (masks, not
-   painted overlays, so the page gradient shows through). */
-.loom-hero {
-  -webkit-mask-image: linear-gradient(to right, transparent 20%, #000 70%), linear-gradient(to bottom, #000 55%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent 20%, #000 70%), linear-gradient(to bottom, #000 55%, transparent);
-  mask-composite: intersect;
+
+/* Tailwind's light reds are written for ink; on cream use readable darks. */
+.surface-cream .text-red-100,
+.surface-cream .text-red-200,
+.surface-cream .text-red-300 {
+  color: #b42318;
+}
+.surface-cream .text-red-100\/80 {
+  color: #b42318;
+}
+
+/* ============ Top bar ============ */
+/* Always ink (over the ink heroes it reads as part of them), so it can never
+   leave the wordmark cream-on-cream; a hairline appears once scrolled. */
+.top-bar {
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid transparent;
+}
+.top-bar[data-scrolled] {
+  border-bottom-color: var(--beige);
+}
+.top-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1.5px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms var(--ease-out-expo);
+}
+.top-link:hover::after,
+.top-link[data-active]::after {
+  transform: scaleX(1);
+}
+.top-link[data-active] {
+  color: var(--sand);
+}
+
+/* ============ Home hero collage ============ */
+.hero-ink {
+  background:
+    radial-gradient(60% 50% at 85% 30%, color-mix(in srgb, var(--violet) 22%, transparent), transparent 70%),
+    var(--ink);
+}
+.collage-float {
+  animation: collage-float 7s ease-in-out var(--float-delay, 0s) infinite alternate;
+}
+@keyframes collage-float {
+  from { transform: translateY(-5px); }
+  to { transform: translateY(5px); }
+}
+.collage-paper {
+  background: #fbf6ec;
+  box-shadow: 0 30px 50px -24px rgba(0, 0, 0, 0.7), 0 2px 0 rgba(0, 0, 0, 0.08);
+}
+.collage-dark {
+  background: #2c1d3a;
+  border: 1px solid rgba(246, 241, 231, 0.12);
+  box-shadow: 0 30px 50px -24px rgba(0, 0, 0, 0.8);
+}
+.collage-code {
+  background: #120a19;
+  border: 1px solid rgba(246, 241, 231, 0.1);
+  box-shadow: 0 30px 50px -22px rgba(0, 0, 0, 0.85);
+}
+.collage-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: collage-draw 1.6s var(--ease-out-expo) 0.9s forwards;
+}
+@keyframes collage-draw {
+  to { stroke-dashoffset: 0; }
+}
+.collage-sticker {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 14px 24px -14px rgba(0, 0, 0, 0.8);
+}
+.collage-sticker-gold { background: var(--gold-fill); color: var(--ink); border-radius: 50%; width: 92px; height: 92px; display: flex; flex-direction: column; justify-content: center; padding: 0; }
+.collage-sticker-sage { background: #cfe9d6; color: #1f4d33; }
+.collage-sticker-berry { background: var(--berry); color: #fbeaf0; }
+.collage-sticker-cream { background: #fbf6ec; color: var(--ink); }
+.collage-blob {
+  animation: blob-breathe 9s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+@keyframes blob-breathe {
+  from { transform: scale(0.97) rotate(-2deg); }
+  to { transform: scale(1.03) rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collage-draw { stroke-dashoffset: 0; }
+}
+
+/* The topic box on ink: a cream-on-plum pill that glows gold when focused. */
+.ask-card {
+  transition: border-color 200ms ease, box-shadow 250ms ease;
+}
+
+/* ============ Smooth scroll (Lenis's stylesheet, kept here so components stay importable in tests) ============ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch],
+.lenis [data-lenis-prevent-vertical],
+.lenis [data-lenis-prevent-horizontal] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+.lenis.lenis-autoToggle {
+  transition-property: overflow;
+  transition-duration: 1ms;
+  transition-behavior: allow-discrete;
 }

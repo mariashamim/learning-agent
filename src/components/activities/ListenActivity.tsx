@@ -45,7 +45,7 @@ export function ListenActivity({ a, onDone }: { a: ListenData; onDone: () => voi
 
   return (
     <ActivityFrame type="listen" title={a.title} prompt={a.prompt} reveal={a.reveal} done={heard}>
-      <div className="flex items-center gap-4 rounded-2xl border border-beige bg-ink/40 p-4">
+      <div className="flex items-center gap-4 rounded-2xl border border-beige bg-well/40 p-4">
         {supported ? (
           <button
             type="button"

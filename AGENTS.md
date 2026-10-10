@@ -138,6 +138,22 @@ with shared timing in `components/motion/presets.ts`. `MotionConfig
 reducedMotion="user"` plus a global CSS rule honour reduced motion; path
 drawing, bursts and springs check it too.
 
+**Visual system.** Editorial "ink and gold": near-black plum ink (#1a0f24),
+warm cream (#f6f1e7), gold as the one hot accent, berry secondary; Instrument
+Sans for text and headlines, Instrument Serif italic for accent words
+(`.accent-word`). Pages alternate ink and cream sections (`PageHero` +
+`CreamSection`); lessons read on cream. Colour tokens are roles (`--sand` is
+primary text, `--taupe` muted, `--beige` hairlines, `--paper` cards,
+`--well` recessed panels, `--gold` accent text and lines, `--gold-fill`
+buttons, `--ink` always the darkest ink): `.surface-cream` re-maps them for
+light sections, and `.surface-ink` restores the dark ones for islands inside
+cream (code windows, the garden, story art). Gold text on cream uses the
+deeper #8f6200 (4.8:1); buttons keep the bright fill with ink text (8.3:1).
+A minimal top bar replaces the sidebar (tabs at the bottom on phones). Lenis
+gives momentum scrolling on browsing pages only; lesson pages keep native
+scrolling, and programmatic scrolls go through `scrollToElement()` so Lenis
+doesn't undo them.
+
 **Saved lessons keep working.** Lessons saved before blocks existed have
 `concepts`, `activities` (placed by `afterConcept`) and `questions`;
 `lessonBlocks()` rebuilds them in their original order, so old courses,
@@ -180,13 +196,16 @@ Each run rebuilds the agent's context from there.
 - `src/app/library/page.tsx` — Library: bookmarked (starred) courses
 - `src/components/app/AppState.tsx` — shared client state: learner, courses, tutor
   requests with background prefetch, quiz saving, bookmarks
-- `src/components/app/AppShell.tsx` — layout: left menu, phone tab bar, overlays
+- `src/components/app/AppShell.tsx` — layout: top bar, phone tab bar, overlays
 - `src/components/LessonView.tsx` — renders a lesson's blocks in order, session bar, module finish
 - `src/components/lesson/` — one component per block kind (code, worked, reflect, dialogue, …)
 - `src/components/activities/` — one component per activity type
 - `src/components/motion/` — motion presets, primitives (Expand, ProgressFill,
   CountUp, Burst), woven-thread visual
 - `src/components/app/CourseMap.tsx` — animated course journey map
+- `src/components/app/PageHero.tsx` — ink page header and cream content section
+- `src/components/app/HeroCollage.tsx` — the home page's paper collage
+- `src/components/app/SmoothScroll.tsx` — Lenis momentum scroll (off on lessons), `scrollToElement()`
 - `src/lib/expression.ts` — safe formula compiler for graph activities
 - `src/components/`, `src/hooks/` — UI pieces
 
@@ -241,7 +260,6 @@ unique(learner_id, topic)
 ## What's next (not yet implemented)
 
 - Spaced-repetition scheduling from recorded mistakes
-- A visual level map for courses (the hierarchy exists; the UI is still a list)
 - More than one lesson per module (today a module is one lesson of activity blocks)
 - Accounts instead of a per-browser learner ID
 - An eval suite for the agent (fixed topics, expected tool sequences, scores);

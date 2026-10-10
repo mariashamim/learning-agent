@@ -47,7 +47,7 @@ export function ChoiceActivity({ a, onDone }: { a: ChoiceActivityData; onDone: (
         })}
       </div>
       {last !== undefined && (
-        <div key={last} className="activity-feedback mt-4 rounded-2xl border border-beige bg-ink/40 p-4">
+        <div key={last} className="activity-feedback mt-4 rounded-2xl border border-beige bg-well/40 p-4">
           <p className={`text-xs font-semibold tracking-[0.14em] uppercase ${a.options[last].correct ? "text-sage" : "text-red-300"}`}>
             {isPredict
               ? a.options[last].correct

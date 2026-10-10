@@ -22,7 +22,7 @@ export function WorkedBlock({ b, onDone }: { b: Of<"worked">; onDone: () => void
 
   return (
     <BlockFrame kind="worked" icon="∑" label="Worked example" title={b.heading} done={done} takeaway={b.answer ? rich(b.answer) : undefined} takeawayLabel="Result">
-      <div className="rounded-2xl border border-beige bg-ink/40 p-4 text-[15px] leading-relaxed text-sand">
+      <div className="rounded-2xl border border-beige bg-well/40 p-4 text-[15px] leading-relaxed text-sand">
         <Paragraphs text={b.problem} />
       </div>
       {/* Each step is built onto the last: the newest stands out, earlier ones settle back. */}
@@ -91,7 +91,7 @@ export function ReflectBlock({ b, onDone }: { b: Of<"reflect">; onDone: () => vo
         rows={4}
         aria-label={b.prompt}
         placeholder="Write a few sentences. Only you will see this."
-        className="w-full resize-y rounded-2xl border border-beige bg-ink/40 p-4 text-[15px] leading-relaxed text-sand placeholder:text-taupe/70 focus:border-gold/60 focus:outline-none"
+        className="w-full resize-y rounded-2xl border border-beige bg-well/40 p-4 text-[15px] leading-relaxed text-sand placeholder:text-taupe/70 focus:border-gold/60 focus:outline-none"
       />
       {!compared ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">

@@ -6,6 +6,7 @@ import { CATALOG, CatalogTile, CourseTile } from "@/components/app/CourseCards";
 import { DotField } from "@/components/app/DotField";
 import { Scrollytelling } from "@/components/app/Scrollytelling";
 import { Reveal } from "@/components/Reveal";
+import { CreamSection, PageHero } from "@/components/app/PageHero";
 
 export default function CoursesPage() {
   const { courses, loaded } = useAppState();
@@ -14,29 +15,21 @@ export default function CoursesPage() {
   const modulesDone = courses.reduce((n, c) => n + c.modules.filter((m) => m.lesson?.completed).length, 0);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-8 pb-24 sm:px-6 lg:px-10">
-      {/* Hero: interactive dot field */}
-      <section className="courses-hero relative overflow-hidden rounded-[2rem] border border-beige bg-gradient-to-br from-violet/60 via-ink/60 to-magenta/50 px-6 py-16 sm:px-12 sm:py-24">
-        <DotField />
-        <div className="relative">
-          <p className="text-xs font-medium tracking-[0.25em] text-gold uppercase">Courses</p>
-          <h1 className="font-display mt-3 max-w-2xl text-5xl leading-[1.02] text-sand sm:text-7xl">
-            Learn anything, <em className="text-gold">one module</em> at a time.
-          </h1>
-          <p className="mt-5 max-w-lg text-base text-taupe">Move your cursor (or a finger) across the field. Then pick a course, or explore a new one below.</p>
-          <div className="mt-8 flex flex-wrap gap-3 text-sm">
-            <span className="rounded-full border border-sand/20 bg-ink/40 px-4 py-2 text-sand">
-              <b className="text-gold">{courses.length}</b> course{courses.length === 1 ? "" : "s"}
-            </span>
-            <span className="rounded-full border border-sand/20 bg-ink/40 px-4 py-2 text-sand">
-              <b className="text-gold">{modulesDone}</b> module{modulesDone === 1 ? "" : "s"} finished
-            </span>
-          </div>
-        </div>
-      </section>
-
+    <main>
+      <PageHero
+        kicker="Courses"
+        aside={`${courses.length} course${courses.length === 1 ? "" : "s"} · ${modulesDone} module${modulesDone === 1 ? "" : "s"} finished`}
+        title={
+          <>
+            Learn anything, <span className="accent-word">one level</span> at a time.
+          </>
+        }
+        lead="Pick up a course you've started, or choose something new. Move your cursor (or a finger) across the field."
+        backdrop={<DotField />}
+      />
+      <CreamSection>
       {/* Your courses */}
-      <section className="mt-16" aria-labelledby="yours">
+      <section aria-labelledby="yours">
         <div className="flex items-end justify-between gap-4">
           <h2 id="yours" className="font-display text-3xl text-sand sm:text-4xl">
             Your courses
@@ -88,6 +81,7 @@ export default function CoursesPage() {
       )}
 
       <Scrollytelling />
+      </CreamSection>
     </main>
   );
 }

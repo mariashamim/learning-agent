@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAppState } from "@/components/app/AppState";
 import { CATALOG, CatalogTile, CourseTile } from "@/components/app/CourseCards";
+import { CreamSection, PageHero } from "@/components/app/PageHero";
 import { DocIcon } from "@/components/Icons";
 import { LessonView } from "@/components/LessonView";
 import { Reveal } from "@/components/Reveal";
@@ -14,13 +15,21 @@ export default function LibraryPage() {
   const [open, setOpen] = useState<LessonRow | null>(null);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-10 pb-24 sm:px-6 lg:px-10">
-      <p className="text-xs font-medium tracking-[0.25em] text-gold uppercase">Library</p>
-      <h1 className="font-display mt-2 text-5xl text-sand sm:text-6xl">Saved courses</h1>
-      <p className="mt-3 text-taupe">Tap the ☆ on any course to keep it here.</p>
+    <main>
+      <PageHero
+        kicker="Library"
+        aside={`${bookmarks.length} saved`}
+        title={
+          <>
+            Courses you <span className="accent-word">kept</span>
+          </>
+        }
+        lead="Tap the ☆ on any course to keep it here."
+      />
+      <CreamSection>
 
       {bookmarks.length === 0 ? (
-        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-beige p-12 text-center">
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-beige p-12 text-center">
           <span className="empty-star text-6xl text-gold" aria-hidden>
             ☆
           </span>
@@ -31,7 +40,7 @@ export default function LibraryPage() {
           </Link>
         </div>
       ) : (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {bookmarks.map((b, i) => {
             const course = courseFor(b.topic);
             const blurb = CATALOG.find((c) => c.topic.toLowerCase() === b.key)?.blurb ?? "Saved for later.";
@@ -91,6 +100,7 @@ export default function LibraryPage() {
           )}
         </section>
       )}
+      </CreamSection>
     </main>
   );
 }

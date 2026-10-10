@@ -73,7 +73,7 @@ export function TimelineActivity({ a, onDone }: { a: TimelineData; onDone: () =>
           <motion.div
             key={active}
             custom={direction}
-            className="rounded-2xl border border-beige bg-ink/40 p-5"
+            className="rounded-2xl border border-beige bg-well/40 p-5"
             variants={{
               enter: (d: number) => ({ x: d * 48, opacity: 0 }),
               center: { x: 0, opacity: 1 },

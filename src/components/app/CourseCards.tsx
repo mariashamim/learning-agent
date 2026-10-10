@@ -36,7 +36,7 @@ export function StarButton({ topic, className = "" }: { topic: string; className
         toggleBookmark(topic);
       }}
       className={`star-btn flex h-9 w-9 items-center justify-center rounded-full border ${
-        on ? "border-gold bg-gold text-ink" : "border-sand/30 bg-ink/40 text-sand hover:border-gold hover:text-gold"
+        on ? "border-gold-fill bg-gold-fill text-ink" : "border-sand/30 bg-well/40 text-sand hover:border-gold-fill hover:text-gold"
       } ${className}`}
       data-on={on || undefined}
     >
@@ -80,7 +80,7 @@ export function CourseTile({ course }: { course: Course }) {
             topic={course.topic}
             className="h-28 w-28 transition-transform duration-500 group-hover:scale-110"
           />
-          <span className="absolute bottom-3 left-3 rounded-full bg-ink/50 px-2.5 py-1 text-[11px] font-medium text-sand">
+          <span className="absolute bottom-3 left-3 rounded-full bg-well/50 px-2.5 py-1 text-[11px] font-medium text-sand">
             {finished ? "Completed ✓" : done ? "In progress" : "Just started"}
           </span>
         </div>

@@ -50,7 +50,7 @@ export function LearnerPill({
           wide ? "w-full" : ""
         }`}
       >
-        <span className="font-display flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold text-base text-ink italic">
+        <span className="font-display flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gold-fill text-base text-ink italic">
           L
         </span>
         <span className={`min-w-0 leading-tight ${compact ? "sr-only" : ""}`}>
@@ -63,7 +63,7 @@ export function LearnerPill({
       <span
         id={tipId}
         role="tooltip"
-        className={`learner-tip pointer-events-none absolute z-30 w-max max-w-[15rem] rounded-lg border border-beige bg-ink px-3 py-1.5 text-xs text-sand shadow-md ${
+        className={`learner-tip pointer-events-none absolute z-30 w-max max-w-[15rem] rounded-lg border border-beige bg-well px-3 py-1.5 text-xs text-sand shadow-md ${
           tipPlacement === "above" ? "bottom-full left-0 mb-2" : "top-full right-0 mt-2"
         }`}
       >

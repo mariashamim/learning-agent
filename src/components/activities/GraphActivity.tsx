@@ -80,7 +80,7 @@ export function GraphActivity({ a, onDone }: { a: GraphData; onDone: () => void 
   return (
     <ActivityFrame type="graph" title={a.title} prompt={a.prompt} reveal={a.reveal} done={done}>
       <figure>
-        <svg viewBox={`0 0 ${W} ${H}`} className="graph-svg w-full rounded-2xl bg-ink/40" role="img" aria-label={`Graph of ${axis.yLabel || "y"} against ${axis.xLabel || "x"} with ${slider.label} at ${fmt(value)}${slider.unit}`}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="graph-svg w-full rounded-2xl bg-well/40" role="img" aria-label={`Graph of ${axis.yLabel || "y"} against ${axis.xLabel || "x"} with ${slider.label} at ${fmt(value)}${slider.unit}`}>
           {/* axes */}
           <line x1={PAD.l} x2={W - PAD.r} y1={zeroY ?? H - PAD.b} y2={zeroY ?? H - PAD.b} className="graph-axis" />
           <line x1={zeroX ?? PAD.l} x2={zeroX ?? PAD.l} y1={PAD.t} y2={H - PAD.b} className="graph-axis" />
